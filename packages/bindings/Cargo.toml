@@ -1,12 +1,13 @@
 [package]
 name = "token-bindings"
-version = "0.9.0"
-authors = ["Ethan Frey <ethanfrey@users.noreply.github.com>"]
+version = "0.10.0"
+authors = ["Ethan Frey <ethanfrey@users.noreply.github.com>", "Reece Williams <reecepbcups@users.noreply.github.com>"]
 edition = "2018"
-description = "Bindings for CustomMsg and CustomQuery for the Osmosis blockchain"
-repository = "https://github.com/confio/osmosis-bindings"
-homepage = "https://osmosis.zone"
+description = "Bindings for CustomMsg and CustomQuery for the Juno blockchain"
+repository = "https://github.com/CosmosContracts/token-bindings"
+homepage = "https://junonetwork.io"
 license = "Apache-2.0"
+keywords = ["juno", "blockchain", "token-factory", "osmosis"]
 
 [dependencies]
 cosmwasm-schema = "1.1"

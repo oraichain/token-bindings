@@ -1,6 +1,6 @@
-# Osmosis Bindings
+# Juno Network Bindings
 
-CosmWasm bindings to custom Osmosis features.
+CosmWasm bindings to custom TokenFactory features from Osmosis.
 
 ## Prerequisites
 
