@@ -44,7 +44,7 @@ cosmwasm-schema = "1.1"
 cosmwasm-std = "1.2.3"
 cosmwasm-storage = "1.1"
 cw-storage-plus = "1.0.1"
-token-bindings = { version = "0.10.1", path = "../../packages/bindings" }
+token-bindings = { version = "0.10.2", path = "../../packages/bindings" }
 cw2 = "1.0.1"
 schemars = "0.8"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
