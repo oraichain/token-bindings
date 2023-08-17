@@ -13,7 +13,8 @@ token-bindings = { version = "0.10.3", path = "../bindings" }
 cosmwasm-std = "1.1"
 schemars = "0.8"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
-cw-multi-test = "0.16"
+# TODO use upstream when PR merged: https://github.com/CosmWasm/cw-multi-test/pull/51
+cw-multi-test = { git = "https://github.com/JakeHartnell/cw-multi-test.git", branch = "bank-supply-support" }
 cw-storage-plus = "0.16"
 anyhow = "1"
 thiserror = "1.0"
