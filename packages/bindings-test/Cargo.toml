@@ -1,20 +1,19 @@
 [package]
 name = "token-bindings-test"
-version = "0.8.0"
-authors = ["Ethan Frey <ethanfrey@users.noreply.github.com>"]
-edition = "2018"
-description = "Multitest (and other test helpers) support for Osmosis-specific contracts"
-repository = "https://github.com/confio/osmosis-bindings"
-homepage = "https://osmosis.zone"
+version = "0.9.0"
+authors = ["Ethan Frey <ethanfrey@users.noreply.github.com>", "Jake Hartnell <no-reply@no-reply.com>"]
+edition = "2021"
+description = "Multitest (and other test helpers) support for Token factory contracts"
+repository = "https://github.com/CosmosContracts/token-bindings"
 license = "Apache-2.0"
 
 [dependencies]
-itertools = "0.10"
+itertools = "0.11"
 token-bindings = { version = "0.10.3", path = "../bindings" }
 cosmwasm-std = "1.1"
 schemars = "0.8"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
-cw-multi-test = "0.15"
-cw-storage-plus = "0.15"
+cw-multi-test = "0.16"
+cw-storage-plus = "0.16"
 anyhow = "1"
 thiserror = "1.0"
