@@ -18,7 +18,7 @@ use cw_storage_plus::Map;
 
 use token_bindings::{
     AdminResponse, CreateDenomResponse, DenomsByCreatorResponse, FullDenomResponse, Metadata,
-    MetadataResponse, TokenFactoryMsg, TokenFactoryQuery, TokenMsg, TokenQuery,
+    MetadataResponse, TokenFactoryQuery, TokenMsg,
 };
 
 use crate::error::ContractError;
@@ -57,7 +57,7 @@ impl TokenFactoryModule {
 }
 
 impl Module for TokenFactoryModule {
-    type ExecT = TokenFactoryMsg;
+    type ExecT = TokenMsg;
     type QueryT = TokenFactoryQuery;
     type SudoT = Empty;
 
@@ -69,13 +69,12 @@ impl Module for TokenFactoryModule {
         router: &dyn CosmosRouter<ExecC = ExecC, QueryC = QueryC>,
         block: &BlockInfo,
         sender: Addr,
-        msg: TokenFactoryMsg,
+        msg: TokenMsg,
     ) -> AnyResult<AppResponse>
     where
         ExecC: Debug + Clone + PartialEq + JsonSchema + DeserializeOwned + 'static,
         QueryC: CustomQuery + DeserializeOwned + 'static,
     {
-        let TokenFactoryMsg::Token(msg) = msg;
         match msg {
             TokenMsg::CreateDenom { subdenom, metadata } => {
                 let new_token_denom = self.build_denom(&sender, &subdenom)?;
@@ -189,9 +188,8 @@ impl Module for TokenFactoryModule {
         _block: &BlockInfo,
         request: TokenFactoryQuery,
     ) -> anyhow::Result<Binary> {
-        let TokenFactoryQuery::Token(query) = request;
-        match query {
-            TokenQuery::FullDenom {
+        match request {
+            TokenFactoryQuery::FullDenom {
                 creator_addr,
                 subdenom,
             } => {
@@ -200,22 +198,22 @@ impl Module for TokenFactoryModule {
                 let res = FullDenomResponse { denom };
                 Ok(to_binary(&res)?)
             }
-            TokenQuery::Metadata { denom } => {
+            TokenFactoryQuery::Metadata { denom } => {
                 let metadata = METADATA.may_load(storage, &denom)?;
                 Ok(to_binary(&MetadataResponse { metadata })?)
             }
-            TokenQuery::Admin { denom } => {
+            TokenFactoryQuery::Admin { denom } => {
                 let admin = ADMIN.load(storage, &denom)?.to_string();
                 Ok(to_binary(&AdminResponse { admin })?)
             }
-            TokenQuery::DenomsByCreator { creator } => {
+            TokenFactoryQuery::DenomsByCreator { creator } => {
                 let creator = api.addr_validate(&creator)?;
                 let denoms = DENOMS_BY_CREATOR
                     .may_load(storage, &creator)?
                     .unwrap_or_default();
                 Ok(to_binary(&DenomsByCreatorResponse { denoms })?)
             }
-            TokenQuery::Params {} => todo!(),
+            TokenFactoryQuery::Params {} => todo!(),
         }
     }
 }
@@ -235,7 +233,7 @@ pub type TokenFactoryAppWrapped = App<
     MockApi,
     MockStorage,
     TokenFactoryModule,
-    WasmKeeper<TokenFactoryMsg, TokenFactoryQuery>,
+    WasmKeeper<TokenMsg, TokenFactoryQuery>,
 >;
 
 pub struct TokenFactoryApp(TokenFactoryAppWrapped);
@@ -269,7 +267,7 @@ impl Default for TokenFactoryApp {
 impl TokenFactoryApp {
     pub fn new() -> Self {
         Self(
-            BasicAppBuilder::<TokenFactoryMsg, TokenFactoryQuery>::new_custom()
+            BasicAppBuilder::<TokenMsg, TokenFactoryQuery>::new_custom()
                 .with_custom(TokenFactoryModule {})
                 .build(|_router, _, _storage| {
                     // router.custom.set_owner(storage, &owner).unwrap();
@@ -328,7 +326,7 @@ mod tests {
         let FullDenomResponse { denom } = app
             .wrap()
             .query(
-                &TokenQuery::FullDenom {
+                &TokenFactoryQuery::FullDenom {
                     creator_addr: contract.to_string(),
                     subdenom: subdenom.to_string(),
                 }

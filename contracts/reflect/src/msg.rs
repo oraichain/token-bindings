@@ -1,22 +1,16 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Binary, CosmosMsg, QueryRequest, SubMsg};
 
-use token_bindings::{TokenFactoryMsg, TokenFactoryQuery};
+use token_bindings::{TokenFactoryQuery, TokenMsg};
 
 #[cw_serde]
 pub struct InstantiateMsg {}
 
 #[cw_serde]
 pub enum ExecuteMsg {
-    ReflectMsg {
-        msgs: Vec<CosmosMsg<TokenFactoryMsg>>,
-    },
-    ReflectSubMsg {
-        msgs: Vec<SubMsg<TokenFactoryMsg>>,
-    },
-    ChangeOwner {
-        owner: String,
-    },
+    ReflectMsg { msgs: Vec<CosmosMsg<TokenMsg>> },
+    ReflectSubMsg { msgs: Vec<SubMsg<TokenMsg>> },
+    ChangeOwner { owner: String },
 }
 
 #[cw_serde]

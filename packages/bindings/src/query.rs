@@ -1,16 +1,10 @@
 use crate::types::{Metadata, Params};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{CustomQuery, QueryRequest};
-
-#[cw_serde]
-pub enum TokenFactoryQuery {
-    // Note: embded enums don't work with QueryResponses currently
-    Token(TokenQuery),
-}
+use cosmwasm_std::CustomQuery;
 
 #[cw_serde]
 #[derive(QueryResponses)]
-pub enum TokenQuery {
+pub enum TokenFactoryQuery {
     /// Given a subdenom created by the address `creator_addr` via `OsmosisMsg::CreateDenom`,
     /// returns the full denom as used by `BankMsg::Send`.
     /// You may call `FullDenom { creator_addr: env.contract.address, subdenom }` to find the denom issued
@@ -40,12 +34,6 @@ pub enum TokenQuery {
 }
 
 impl CustomQuery for TokenFactoryQuery {}
-
-impl From<TokenQuery> for QueryRequest<TokenFactoryQuery> {
-    fn from(query: TokenQuery) -> Self {
-        QueryRequest::Custom(TokenFactoryQuery::Token(query))
-    }
-}
 
 #[cw_serde]
 pub struct FullDenomResponse {

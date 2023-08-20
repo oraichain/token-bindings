@@ -2,14 +2,6 @@ use crate::types::Metadata;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Binary, CosmosMsg, CustomMsg, StdResult, Uint128};
 
-/// A top-level Custom message for the token factory.
-/// It is embedded like this to easily allow adding other variants that are custom
-/// to your chain, or other "standardized" extensions along side it.
-#[cw_serde]
-pub enum TokenFactoryMsg {
-    Token(TokenMsg),
-}
-
 /// Special messages to be supported by any chain that supports token_factory
 #[cw_serde]
 pub enum TokenMsg {
@@ -25,6 +17,7 @@ pub enum TokenMsg {
     /// to calling SetMetadata directly on the returned denom.
     CreateDenom {
         subdenom: String,
+        // TODO investigate if this is interoperable with Osmosis
         metadata: Option<Metadata>,
     },
     /// ChangeAdmin changes the admin for a factory denom.
@@ -71,11 +64,7 @@ impl TokenMsg {
         }
     }
 
-    pub fn burn_contract_tokens(
-        denom: String,
-        amount: Uint128,
-        burn_from_address: String,
-    ) -> Self {
+    pub fn burn_contract_tokens(denom: String, amount: Uint128, burn_from_address: String) -> Self {
         TokenMsg::BurnTokens {
             denom,
             amount,
@@ -98,13 +87,13 @@ impl TokenMsg {
     }
 }
 
-impl From<TokenMsg> for CosmosMsg<TokenFactoryMsg> {
-    fn from(msg: TokenMsg) -> CosmosMsg<TokenFactoryMsg> {
-        CosmosMsg::Custom(TokenFactoryMsg::Token(msg))
+impl From<TokenMsg> for CosmosMsg<TokenMsg> {
+    fn from(msg: TokenMsg) -> CosmosMsg<TokenMsg> {
+        CosmosMsg::Custom(msg)
     }
 }
 
-impl CustomMsg for TokenFactoryMsg {}
+impl CustomMsg for TokenMsg {}
 
 /// This is in the data field in the reply from a TokenMsg::CreateDenom SubMsg
 /// Custom code to parse from protobuf with minimal wasm bytecode bloat

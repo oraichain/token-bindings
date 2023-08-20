@@ -8,7 +8,7 @@ use cw2::set_contract_version;
 use crate::error::TokenFactoryError;
 use crate::msg::{ExecuteMsg, GetDenomResponse, InstantiateMsg, QueryMsg};
 use crate::state::{State, STATE};
-use token_bindings::{TokenFactoryMsg, TokenFactoryQuery, TokenMsg, TokenQuerier};
+use token_bindings::{TokenFactoryQuery, TokenMsg, TokenQuerier};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:tokenfactory-demo";
@@ -38,7 +38,7 @@ pub fn execute(
     _env: Env,
     _info: MessageInfo,
     msg: ExecuteMsg,
-) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
+) -> Result<Response<TokenMsg>, TokenFactoryError> {
     match msg {
         ExecuteMsg::CreateDenom { subdenom } => create_denom(subdenom),
         ExecuteMsg::ChangeAdmin {
@@ -64,7 +64,7 @@ pub fn execute(
     }
 }
 
-pub fn create_denom(subdenom: String) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
+pub fn create_denom(subdenom: String) -> Result<Response<TokenMsg>, TokenFactoryError> {
     if subdenom.eq("") {
         return Err(TokenFactoryError::InvalidSubdenom { subdenom });
     }
@@ -85,7 +85,7 @@ pub fn change_admin(
     deps: DepsMut<TokenFactoryQuery>,
     denom: String,
     new_admin_address: String,
-) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
+) -> Result<Response<TokenMsg>, TokenFactoryError> {
     deps.api.addr_validate(&new_admin_address)?;
 
     validate_denom(deps, denom.clone())?;
@@ -107,7 +107,7 @@ pub fn mint_tokens(
     denom: String,
     amount: Uint128,
     mint_to_address: String,
-) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
+) -> Result<Response<TokenMsg>, TokenFactoryError> {
     deps.api.addr_validate(&mint_to_address)?;
 
     if amount.eq(&Uint128::new(0_u128)) {
@@ -130,7 +130,7 @@ pub fn burn_tokens(
     denom: String,
     amount: Uint128,
     burn_from_address: String,
-) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
+) -> Result<Response<TokenMsg>, TokenFactoryError> {
     if amount.eq(&Uint128::new(0_u128)) {
         return Result::Err(TokenFactoryError::ZeroAmount {});
     }
@@ -152,7 +152,7 @@ pub fn force_transfer(
     amount: Uint128,
     from_address: String,
     to_address: String,
-) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
+) -> Result<Response<TokenMsg>, TokenFactoryError> {
     if amount.eq(&Uint128::new(0_u128)) {
         return Result::Err(TokenFactoryError::ZeroAmount {});
     }
@@ -243,7 +243,7 @@ mod tests {
         SystemError, SystemResult,
     };
     use std::marker::PhantomData;
-    use token_bindings::TokenQuery;
+    use token_bindings::TokenFactoryQuery;
     use token_bindings_test::TokenFactoryApp;
 
     const DENOM_NAME: &str = "mydenom";
@@ -264,10 +264,10 @@ mod tests {
     ) -> OwnedDeps<MockStorage, MockApi, MockQuerier<TokenFactoryQuery>, TokenFactoryQuery> {
         let custom_querier: MockQuerier<TokenFactoryQuery> =
             MockQuerier::new(&[(MOCK_CONTRACT_ADDR, &[])]).with_custom_handler(|a| match a {
-                TokenFactoryQuery::Token(TokenQuery::FullDenom {
+                TokenFactoryQuery::FullDenom {
                     creator_addr,
                     subdenom,
-                }) => {
+                } => {
                     let binary_request = to_binary(a).unwrap();
 
                     if creator_addr.eq("") {
@@ -576,8 +576,8 @@ mod tests {
             burn_from_address: String::from(BURN_FROM_ADDR),
             amount: burn_amount,
         };
-        let err = execute(deps.as_mut(), mock_env(), info, msg).is_err();        
-        assert_eq!(err, false)
+        let err = execute(deps.as_mut(), mock_env(), info, msg).is_err();
+        assert!(err)
     }
 
     #[test]
@@ -593,15 +593,15 @@ mod tests {
 
         let info = mock_info("creator", &coins(2, "token"));
 
-        let msg = ExecuteMsg::ForceTransfer { 
-            denom: String::from(full_denom_name), 
-            amount: transfer_amount, 
-            from_address: TRANSFER_FROM_ADDR.to_string(), 
+        let msg = ExecuteMsg::ForceTransfer {
+            denom: String::from(full_denom_name),
+            amount: transfer_amount,
+            from_address: TRANSFER_FROM_ADDR.to_string(),
             to_address: TRANSFER_TO_ADDR.to_string(),
         };
 
-        let err = execute(deps.as_mut(), mock_env(), info, msg).is_err();        
-        assert_eq!(err, false)
+        let err = execute(deps.as_mut(), mock_env(), info, msg).is_err();
+        assert!(err)
     }
 
     #[test]
