@@ -2,7 +2,7 @@ use cosmwasm_std::{
     entry_point, to_binary, to_vec, ContractResult, CosmosMsg, Deps, DepsMut, Env, MessageInfo,
     QueryRequest, QueryResponse, Reply, Response, StdError, StdResult, SubMsg, SystemResult,
 };
-use token_bindings::{TokenFactoryQuery, TokenMsg};
+use token_bindings::{TokenFactoryMsg, TokenFactoryQuery};
 
 use crate::errors::ReflectError;
 use crate::msg::{ChainResponse, ExecuteMsg, InstantiateMsg, OwnerResponse, QueryMsg};
@@ -14,7 +14,7 @@ pub fn instantiate(
     _env: Env,
     info: MessageInfo,
     _msg: InstantiateMsg,
-) -> StdResult<Response<TokenMsg>> {
+) -> StdResult<Response<TokenFactoryMsg>> {
     let state = State { owner: info.sender };
     config(deps.storage).save(&state)?;
     Ok(Response::default())
@@ -26,7 +26,7 @@ pub fn execute(
     env: Env,
     info: MessageInfo,
     msg: ExecuteMsg,
-) -> Result<Response<TokenMsg>, ReflectError> {
+) -> Result<Response<TokenFactoryMsg>, ReflectError> {
     match msg {
         ExecuteMsg::ReflectMsg { msgs } => execute_reflect(deps, env, info, msgs),
         ExecuteMsg::ReflectSubMsg { msgs } => execute_reflect_subcall(deps, env, info, msgs),
@@ -38,8 +38,8 @@ pub fn execute_reflect(
     deps: DepsMut<TokenFactoryQuery>,
     _env: Env,
     info: MessageInfo,
-    msgs: Vec<CosmosMsg<TokenMsg>>,
-) -> Result<Response<TokenMsg>, ReflectError> {
+    msgs: Vec<CosmosMsg<TokenFactoryMsg>>,
+) -> Result<Response<TokenFactoryMsg>, ReflectError> {
     let state = config(deps.storage).load()?;
 
     if info.sender != state.owner {
@@ -62,8 +62,8 @@ pub fn execute_reflect_subcall(
     deps: DepsMut<TokenFactoryQuery>,
     _env: Env,
     info: MessageInfo,
-    msgs: Vec<SubMsg<TokenMsg>>,
-) -> Result<Response<TokenMsg>, ReflectError> {
+    msgs: Vec<SubMsg<TokenFactoryMsg>>,
+) -> Result<Response<TokenFactoryMsg>, ReflectError> {
     let state = config(deps.storage).load()?;
     if info.sender != state.owner {
         return Err(ReflectError::NotCurrentOwner {
@@ -86,7 +86,7 @@ pub fn execute_change_owner(
     _env: Env,
     info: MessageInfo,
     new_owner: String,
-) -> Result<Response<TokenMsg>, ReflectError> {
+) -> Result<Response<TokenFactoryMsg>, ReflectError> {
     let api = deps.api;
     config(deps.storage).update(|mut state| {
         if info.sender != state.owner {

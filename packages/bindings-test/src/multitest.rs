@@ -18,7 +18,7 @@ use cw_storage_plus::Map;
 
 use token_bindings::{
     AdminResponse, CreateDenomResponse, DenomsByCreatorResponse, FullDenomResponse, Metadata,
-    MetadataResponse, TokenFactoryQuery, TokenMsg,
+    MetadataResponse, TokenFactoryMsg, TokenFactoryQuery,
 };
 
 use crate::error::ContractError;
@@ -57,7 +57,7 @@ impl TokenFactoryModule {
 }
 
 impl Module for TokenFactoryModule {
-    type ExecT = TokenMsg;
+    type ExecT = TokenFactoryMsg;
     type QueryT = TokenFactoryQuery;
     type SudoT = Empty;
 
@@ -69,14 +69,14 @@ impl Module for TokenFactoryModule {
         router: &dyn CosmosRouter<ExecC = ExecC, QueryC = QueryC>,
         block: &BlockInfo,
         sender: Addr,
-        msg: TokenMsg,
+        msg: TokenFactoryMsg,
     ) -> AnyResult<AppResponse>
     where
         ExecC: Debug + Clone + PartialEq + JsonSchema + DeserializeOwned + 'static,
         QueryC: CustomQuery + DeserializeOwned + 'static,
     {
         match msg {
-            TokenMsg::CreateDenom { subdenom, metadata } => {
+            TokenFactoryMsg::CreateDenom { subdenom, metadata } => {
                 let new_token_denom = self.build_denom(&sender, &subdenom)?;
 
                 // errors if the denom was already created
@@ -104,7 +104,7 @@ impl Module for TokenFactoryModule {
                     events: vec![],
                 })
             }
-            TokenMsg::MintTokens {
+            TokenFactoryMsg::MintTokens {
                 denom,
                 amount,
                 mint_to_address,
@@ -123,18 +123,18 @@ impl Module for TokenFactoryModule {
                 router.sudo(api, storage, block, mint.into())?;
                 Ok(AppResponse::default())
             }
-            TokenMsg::BurnTokens {
+            TokenFactoryMsg::BurnTokens {
                 denom: _,
                 amount: _,
                 burn_from_address: _,
             } => todo!(),
-            TokenMsg::ForceTransfer {
+            TokenFactoryMsg::ForceTransfer {
                 denom: _,
                 amount: _,
                 from_address: _,
                 to_address: _,
             } => todo!(),
-            TokenMsg::ChangeAdmin {
+            TokenFactoryMsg::ChangeAdmin {
                 denom,
                 new_admin_address,
             } => {
@@ -150,7 +150,7 @@ impl Module for TokenFactoryModule {
                 ADMIN.save(storage, &denom, &new_admin)?;
                 Ok(AppResponse::default())
             }
-            TokenMsg::SetMetadata { denom, metadata } => {
+            TokenFactoryMsg::SetMetadata { denom, metadata } => {
                 // ensure we are admin of this denom (and it exists)
                 let admin = ADMIN
                     .may_load(storage, &denom)?
@@ -233,7 +233,7 @@ pub type TokenFactoryAppWrapped = App<
     MockApi,
     MockStorage,
     TokenFactoryModule,
-    WasmKeeper<TokenMsg, TokenFactoryQuery>,
+    WasmKeeper<TokenFactoryMsg, TokenFactoryQuery>,
 >;
 
 pub struct TokenFactoryApp(TokenFactoryAppWrapped);
@@ -267,7 +267,7 @@ impl Default for TokenFactoryApp {
 impl TokenFactoryApp {
     pub fn new() -> Self {
         Self(
-            BasicAppBuilder::<TokenMsg, TokenFactoryQuery>::new_custom()
+            BasicAppBuilder::<TokenFactoryMsg, TokenFactoryQuery>::new_custom()
                 .with_custom(TokenFactoryModule {})
                 .build(|_router, _, _storage| {
                     // router.custom.set_owner(storage, &owner).unwrap();
@@ -338,7 +338,7 @@ mod tests {
 
         // prepare to mint
         let amount = Uint128::new(1234567);
-        let msg = TokenMsg::MintTokens {
+        let msg = TokenFactoryMsg::MintTokens {
             denom: denom.to_string(),
             amount,
             mint_to_address: rcpt.to_string(),
@@ -354,7 +354,7 @@ mod tests {
         );
 
         // create the token now
-        let create = TokenMsg::CreateDenom {
+        let create = TokenFactoryMsg::CreateDenom {
             subdenom: subdenom.to_string(),
             metadata: Some(Metadata {
                 description: Some("Awesome token, get it now!".to_string()),
