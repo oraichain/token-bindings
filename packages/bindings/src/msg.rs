@@ -2,17 +2,9 @@ use crate::types::Metadata;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Binary, CosmosMsg, CustomMsg, StdResult, Uint128};
 
-/// A top-level Custom message for the token factory.
-/// It is embedded like this to easily allow adding other variants that are custom
-/// to your chain, or other "standardized" extensions along side it.
-#[cw_serde]
-pub enum TokenFactoryMsg {
-    Token(TokenMsg),
-}
-
 /// Special messages to be supported by any chain that supports token_factory
 #[cw_serde]
-pub enum TokenMsg {
+pub enum TokenFactoryMsg {
     /// CreateDenom creates a new factory denom, of denomination:
     /// factory/{creating contract bech32 address}/{Subdenom}
     /// Subdenom can be of length at most 44 characters, in [0-9a-zA-Z./]
@@ -25,6 +17,7 @@ pub enum TokenMsg {
     /// to calling SetMetadata directly on the returned denom.
     CreateDenom {
         subdenom: String,
+        // TODO investigate if this is interoperable with Osmosis
         metadata: Option<Metadata>,
     },
     /// ChangeAdmin changes the admin for a factory denom.
@@ -42,7 +35,7 @@ pub enum TokenMsg {
         mint_to_address: String,
     },
     /// Contracts can burn native tokens for an existing factory denom
-    /// that they are the admin of.
+    /// tshat they are the admin of.
     BurnTokens {
         denom: String,
         amount: Uint128,
@@ -62,21 +55,17 @@ pub enum TokenMsg {
     },
 }
 
-impl TokenMsg {
+impl TokenFactoryMsg {
     pub fn mint_contract_tokens(denom: String, amount: Uint128, mint_to_address: String) -> Self {
-        TokenMsg::MintTokens {
+        TokenFactoryMsg::MintTokens {
             denom,
             amount,
             mint_to_address,
         }
     }
 
-    pub fn burn_contract_tokens(
-        denom: String,
-        amount: Uint128,
-        burn_from_address: String,
-    ) -> Self {
-        TokenMsg::BurnTokens {
+    pub fn burn_contract_tokens(denom: String, amount: Uint128, burn_from_address: String) -> Self {
+        TokenFactoryMsg::BurnTokens {
             denom,
             amount,
             burn_from_address,
@@ -89,7 +78,7 @@ impl TokenMsg {
         from_address: String,
         to_address: String,
     ) -> Self {
-        TokenMsg::ForceTransfer {
+        TokenFactoryMsg::ForceTransfer {
             denom,
             amount,
             from_address,
@@ -98,15 +87,15 @@ impl TokenMsg {
     }
 }
 
-impl From<TokenMsg> for CosmosMsg<TokenFactoryMsg> {
-    fn from(msg: TokenMsg) -> CosmosMsg<TokenFactoryMsg> {
-        CosmosMsg::Custom(TokenFactoryMsg::Token(msg))
+impl From<TokenFactoryMsg> for CosmosMsg<TokenFactoryMsg> {
+    fn from(msg: TokenFactoryMsg) -> CosmosMsg<TokenFactoryMsg> {
+        CosmosMsg::Custom(msg)
     }
 }
 
 impl CustomMsg for TokenFactoryMsg {}
 
-/// This is in the data field in the reply from a TokenMsg::CreateDenom SubMsg
+/// This is in the data field in the reply from a TokenFactoryMsg::CreateDenom SubMsg
 /// Custom code to parse from protobuf with minimal wasm bytecode bloat
 pub struct CreateDenomResponse {
     pub new_token_denom: String,

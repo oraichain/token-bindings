@@ -18,7 +18,7 @@ use cw_storage_plus::Map;
 
 use token_bindings::{
     AdminResponse, CreateDenomResponse, DenomsByCreatorResponse, FullDenomResponse, Metadata,
-    MetadataResponse, TokenFactoryMsg, TokenFactoryQuery, TokenMsg, TokenQuery,
+    MetadataResponse, TokenFactoryMsg, TokenFactoryQuery,
 };
 
 use crate::error::ContractError;
@@ -75,9 +75,8 @@ impl Module for TokenFactoryModule {
         ExecC: Debug + Clone + PartialEq + JsonSchema + DeserializeOwned + 'static,
         QueryC: CustomQuery + DeserializeOwned + 'static,
     {
-        let TokenFactoryMsg::Token(msg) = msg;
         match msg {
-            TokenMsg::CreateDenom { subdenom, metadata } => {
+            TokenFactoryMsg::CreateDenom { subdenom, metadata } => {
                 let new_token_denom = self.build_denom(&sender, &subdenom)?;
 
                 // errors if the denom was already created
@@ -105,7 +104,7 @@ impl Module for TokenFactoryModule {
                     events: vec![],
                 })
             }
-            TokenMsg::MintTokens {
+            TokenFactoryMsg::MintTokens {
                 denom,
                 amount,
                 mint_to_address,
@@ -124,18 +123,18 @@ impl Module for TokenFactoryModule {
                 router.sudo(api, storage, block, mint.into())?;
                 Ok(AppResponse::default())
             }
-            TokenMsg::BurnTokens {
+            TokenFactoryMsg::BurnTokens {
                 denom: _,
                 amount: _,
                 burn_from_address: _,
             } => todo!(),
-            TokenMsg::ForceTransfer {
+            TokenFactoryMsg::ForceTransfer {
                 denom: _,
                 amount: _,
                 from_address: _,
                 to_address: _,
             } => todo!(),
-            TokenMsg::ChangeAdmin {
+            TokenFactoryMsg::ChangeAdmin {
                 denom,
                 new_admin_address,
             } => {
@@ -151,7 +150,7 @@ impl Module for TokenFactoryModule {
                 ADMIN.save(storage, &denom, &new_admin)?;
                 Ok(AppResponse::default())
             }
-            TokenMsg::SetMetadata { denom, metadata } => {
+            TokenFactoryMsg::SetMetadata { denom, metadata } => {
                 // ensure we are admin of this denom (and it exists)
                 let admin = ADMIN
                     .may_load(storage, &denom)?
@@ -189,9 +188,8 @@ impl Module for TokenFactoryModule {
         _block: &BlockInfo,
         request: TokenFactoryQuery,
     ) -> anyhow::Result<Binary> {
-        let TokenFactoryQuery::Token(query) = request;
-        match query {
-            TokenQuery::FullDenom {
+        match request {
+            TokenFactoryQuery::FullDenom {
                 creator_addr,
                 subdenom,
             } => {
@@ -200,22 +198,22 @@ impl Module for TokenFactoryModule {
                 let res = FullDenomResponse { denom };
                 Ok(to_binary(&res)?)
             }
-            TokenQuery::Metadata { denom } => {
+            TokenFactoryQuery::Metadata { denom } => {
                 let metadata = METADATA.may_load(storage, &denom)?;
                 Ok(to_binary(&MetadataResponse { metadata })?)
             }
-            TokenQuery::Admin { denom } => {
+            TokenFactoryQuery::Admin { denom } => {
                 let admin = ADMIN.load(storage, &denom)?.to_string();
                 Ok(to_binary(&AdminResponse { admin })?)
             }
-            TokenQuery::DenomsByCreator { creator } => {
+            TokenFactoryQuery::DenomsByCreator { creator } => {
                 let creator = api.addr_validate(&creator)?;
                 let denoms = DENOMS_BY_CREATOR
                     .may_load(storage, &creator)?
                     .unwrap_or_default();
                 Ok(to_binary(&DenomsByCreatorResponse { denoms })?)
             }
-            TokenQuery::Params {} => todo!(),
+            TokenFactoryQuery::Params {} => todo!(),
         }
     }
 }
@@ -328,7 +326,7 @@ mod tests {
         let FullDenomResponse { denom } = app
             .wrap()
             .query(
-                &TokenQuery::FullDenom {
+                &TokenFactoryQuery::FullDenom {
                     creator_addr: contract.to_string(),
                     subdenom: subdenom.to_string(),
                 }
@@ -340,7 +338,7 @@ mod tests {
 
         // prepare to mint
         let amount = Uint128::new(1234567);
-        let msg = TokenMsg::MintTokens {
+        let msg = TokenFactoryMsg::MintTokens {
             denom: denom.to_string(),
             amount,
             mint_to_address: rcpt.to_string(),
@@ -356,7 +354,7 @@ mod tests {
         );
 
         // create the token now
-        let create = TokenMsg::CreateDenom {
+        let create = TokenFactoryMsg::CreateDenom {
             subdenom: subdenom.to_string(),
             metadata: Some(Metadata {
                 description: Some("Awesome token, get it now!".to_string()),

@@ -8,7 +8,7 @@ use cw2::set_contract_version;
 use crate::error::TokenFactoryError;
 use crate::msg::{ExecuteMsg, GetDenomResponse, InstantiateMsg, QueryMsg};
 use crate::state::{State, STATE};
-use token_bindings::{TokenFactoryMsg, TokenFactoryQuery, TokenMsg, TokenQuerier};
+use token_bindings::{TokenFactoryMsg, TokenFactoryQuery, TokenQuerier};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:tokenfactory-demo";
@@ -69,7 +69,7 @@ pub fn create_denom(subdenom: String) -> Result<Response<TokenFactoryMsg>, Token
         return Err(TokenFactoryError::InvalidSubdenom { subdenom });
     }
 
-    let create_denom_msg = TokenMsg::CreateDenom {
+    let create_denom_msg = TokenFactoryMsg::CreateDenom {
         subdenom,
         metadata: None,
     };
@@ -90,7 +90,7 @@ pub fn change_admin(
 
     validate_denom(deps, denom.clone())?;
 
-    let change_admin_msg = TokenMsg::ChangeAdmin {
+    let change_admin_msg = TokenFactoryMsg::ChangeAdmin {
         denom,
         new_admin_address,
     };
@@ -116,7 +116,7 @@ pub fn mint_tokens(
 
     validate_denom(deps, denom.clone())?;
 
-    let mint_tokens_msg = TokenMsg::mint_contract_tokens(denom, amount, mint_to_address);
+    let mint_tokens_msg = TokenFactoryMsg::mint_contract_tokens(denom, amount, mint_to_address);
 
     let res = Response::new()
         .add_attribute("method", "mint_tokens")
@@ -137,7 +137,7 @@ pub fn burn_tokens(
 
     validate_denom(deps, denom.clone())?;
 
-    let burn_token_msg = TokenMsg::burn_contract_tokens(denom, amount, burn_from_address);
+    let burn_token_msg = TokenFactoryMsg::burn_contract_tokens(denom, amount, burn_from_address);
 
     let res = Response::new()
         .add_attribute("method", "burn_tokens")
@@ -159,7 +159,7 @@ pub fn force_transfer(
 
     validate_denom(deps, denom.clone())?;
 
-    let force_msg = TokenMsg::force_transfer_tokens(denom, amount, from_address, to_address);
+    let force_msg = TokenFactoryMsg::force_transfer_tokens(denom, amount, from_address, to_address);
 
     let res = Response::new()
         .add_attribute("method", "force_transfer_tokens")
@@ -243,7 +243,7 @@ mod tests {
         SystemError, SystemResult,
     };
     use std::marker::PhantomData;
-    use token_bindings::TokenQuery;
+    use token_bindings::TokenFactoryQuery;
     use token_bindings_test::TokenFactoryApp;
 
     const DENOM_NAME: &str = "mydenom";
@@ -264,10 +264,10 @@ mod tests {
     ) -> OwnedDeps<MockStorage, MockApi, MockQuerier<TokenFactoryQuery>, TokenFactoryQuery> {
         let custom_querier: MockQuerier<TokenFactoryQuery> =
             MockQuerier::new(&[(MOCK_CONTRACT_ADDR, &[])]).with_custom_handler(|a| match a {
-                TokenFactoryQuery::Token(TokenQuery::FullDenom {
+                TokenFactoryQuery::FullDenom {
                     creator_addr,
                     subdenom,
-                }) => {
+                } => {
                     let binary_request = to_binary(a).unwrap();
 
                     if creator_addr.eq("") {
@@ -333,7 +333,7 @@ mod tests {
 
         assert_eq!(1, res.messages.len());
 
-        let expected_message = CosmosMsg::from(TokenMsg::CreateDenom {
+        let expected_message = CosmosMsg::from(TokenFactoryMsg::CreateDenom {
             subdenom: String::from(DENOM_NAME),
             metadata: None,
         });
@@ -385,7 +385,7 @@ mod tests {
 
         assert_eq!(1, res.messages.len());
 
-        let expected_message = CosmosMsg::from(TokenMsg::ChangeAdmin {
+        let expected_message = CosmosMsg::from(TokenFactoryMsg::ChangeAdmin {
             denom: String::from(full_denom_name),
             new_admin_address: String::from(NEW_ADMIN_ADDR),
         });
@@ -483,7 +483,7 @@ mod tests {
 
         assert_eq!(1, res.messages.len());
 
-        let expected_message = CosmosMsg::from(TokenMsg::MintTokens {
+        let expected_message = CosmosMsg::from(TokenFactoryMsg::MintTokens {
             denom: String::from(full_denom_name),
             amount: mint_amount,
             mint_to_address: String::from(NEW_ADMIN_ADDR),
@@ -543,7 +543,7 @@ mod tests {
         let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         assert_eq!(1, res.messages.len());
-        let expected_message = CosmosMsg::from(TokenMsg::BurnTokens {
+        let expected_message = CosmosMsg::from(TokenFactoryMsg::BurnTokens {
             denom: String::from(full_denom_name),
             amount: mint_amount,
             burn_from_address: String::from(""),
@@ -576,8 +576,8 @@ mod tests {
             burn_from_address: String::from(BURN_FROM_ADDR),
             amount: burn_amount,
         };
-        let err = execute(deps.as_mut(), mock_env(), info, msg).is_err();        
-        assert_eq!(err, false)
+        let err = execute(deps.as_mut(), mock_env(), info, msg).is_ok();
+        assert!(err)
     }
 
     #[test]
@@ -593,15 +593,15 @@ mod tests {
 
         let info = mock_info("creator", &coins(2, "token"));
 
-        let msg = ExecuteMsg::ForceTransfer { 
-            denom: String::from(full_denom_name), 
-            amount: transfer_amount, 
-            from_address: TRANSFER_FROM_ADDR.to_string(), 
+        let msg = ExecuteMsg::ForceTransfer {
+            denom: String::from(full_denom_name),
+            amount: transfer_amount,
+            from_address: TRANSFER_FROM_ADDR.to_string(),
             to_address: TRANSFER_TO_ADDR.to_string(),
         };
 
-        let err = execute(deps.as_mut(), mock_env(), info, msg).is_err();        
-        assert_eq!(err, false)
+        let err = execute(deps.as_mut(), mock_env(), info, msg).is_ok();
+        assert!(err)
     }
 
     #[test]

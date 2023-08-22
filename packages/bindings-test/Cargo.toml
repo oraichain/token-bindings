@@ -1,20 +1,21 @@
 [package]
 name = "token-bindings-test"
-version = "0.8.0"
-authors = ["Ethan Frey <ethanfrey@users.noreply.github.com>"]
-edition = "2018"
-description = "Multitest (and other test helpers) support for Osmosis-specific contracts"
-repository = "https://github.com/confio/osmosis-bindings"
-homepage = "https://osmosis.zone"
-license = "Apache-2.0"
+version = { workspace = true }
+authors = ["Ethan Frey <ethanfrey@users.noreply.github.com>", "Jake Hartnell <jakehartnell@users.noreply.github.com>"]
+description = "Multitest (and other test helpers) support for Token factory contracts"
+
+edition = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
 
 [dependencies]
-itertools = "0.10"
-token-bindings = { version = "0.10.3", path = "../bindings" }
-cosmwasm-std = "1.1"
-schemars = "0.8"
-serde = { version = "1.0", default-features = false, features = ["derive"] }
-cw-multi-test = "0.15"
-cw-storage-plus = "0.15"
-anyhow = "1"
-thiserror = "1.0"
+anyhow = { workspace = true }
+cosmwasm-std = { workspace = true }
+cw-multi-test = { workspace = true }
+cw-storage-plus = { workspace = true }
+itertools = { workspace = true }
+token-bindings = { workspace = true, path = "../bindings" }
+schemars = { workspace = true }
+serde = { workspace = true, default-features = false, features = ["derive"] }
+thiserror = { workspace = true }
