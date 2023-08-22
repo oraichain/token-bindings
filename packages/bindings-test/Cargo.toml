@@ -9,7 +9,7 @@ license = "Apache-2.0"
 
 [dependencies]
 itertools = "0.11"
-token-bindings = { version = "0.10.3", path = "../bindings" }
+token-bindings = { version = "0.11.0", path = "../bindings" }
 cosmwasm-std = "1.1"
 schemars = "0.8"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
