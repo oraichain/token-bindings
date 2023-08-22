@@ -1,19 +1,20 @@
 [package]
 name = "token-bindings"
-version = "0.11.0"
-authors = ["Ethan Frey <ethanfrey@users.noreply.github.com>", "Reece Williams <reecepbcups@users.noreply.github.com>"]
-edition = "2018"
+version = { workspace = true }
+authors = ["Ethan Frey <ethanfrey@users.noreply.github.com>", "Reece Williams <reecepbcups@users.noreply.github.com>", "Jake Hartnell <jakehartnell@users.noreply.github.com>"]
 description = "Bindings for CustomMsg and CustomQuery for blockchains supporting Token Factory."
-repository = "https://github.com/CosmosContracts/token-bindings"
-homepage = "https://junonetwork.io"
-license = "Apache-2.0"
 keywords = ["juno", "blockchain", "token-factory", "osmosis"]
 readme = "../../README.md"
 
+edition = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
+
 [dependencies]
-cosmwasm-schema = "1.1"
-cosmwasm-std = "1.1"
-schemars = "0.8"
-serde = { version = "1.0", default-features = false, features = ["derive"] }
+cosmwasm-schema = { workspace = true }
+cosmwasm-std = { workspace = true }
+schemars = { workspace = true }
+serde = { workspace = true, default-features = false, features = ["derive"] }
 
 [dev-dependencies]

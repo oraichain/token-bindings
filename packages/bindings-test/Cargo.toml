@@ -1,20 +1,21 @@
 [package]
 name = "token-bindings-test"
-version = "0.9.0"
-authors = ["Ethan Frey <ethanfrey@users.noreply.github.com>", "Jake Hartnell <no-reply@no-reply.com>"]
-edition = "2021"
+version = { workspace = true }
+authors = ["Ethan Frey <ethanfrey@users.noreply.github.com>", "Jake Hartnell <jakehartnell@users.noreply.github.com>"]
 description = "Multitest (and other test helpers) support for Token factory contracts"
-repository = "https://github.com/CosmosContracts/token-bindings"
-license = "Apache-2.0"
+
+edition = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
 
 [dependencies]
-itertools = "0.11"
-token-bindings = { version = "0.11.0", path = "../bindings" }
-cosmwasm-std = "1.1"
-schemars = "0.8"
-serde = { version = "1.0", default-features = false, features = ["derive"] }
-# TODO use upstream when PR merged: https://github.com/CosmWasm/cw-multi-test/pull/51
-cw-multi-test = { git = "https://github.com/JakeHartnell/cw-multi-test.git", branch = "bank-supply-support" }
-cw-storage-plus = "0.16"
-anyhow = "1"
-thiserror = "1.0"
+anyhow = { workspace = true }
+cosmwasm-std = { workspace = true }
+cw-multi-test = { workspace = true }
+cw-storage-plus = { workspace = true }
+itertools = { workspace = true }
+token-bindings = { workspace = true, path = "../bindings" }
+schemars = { workspace = true }
+serde = { workspace = true, default-features = false, features = ["derive"] }
+thiserror = { workspace = true }
