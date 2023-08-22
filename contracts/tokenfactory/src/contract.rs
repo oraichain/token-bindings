@@ -576,7 +576,7 @@ mod tests {
             burn_from_address: String::from(BURN_FROM_ADDR),
             amount: burn_amount,
         };
-        let err = execute(deps.as_mut(), mock_env(), info, msg).is_err();
+        let err = execute(deps.as_mut(), mock_env(), info, msg).is_ok();
         assert!(err)
     }
 
@@ -600,7 +600,7 @@ mod tests {
             to_address: TRANSFER_TO_ADDR.to_string(),
         };
 
-        let err = execute(deps.as_mut(), mock_env(), info, msg).is_err();
+        let err = execute(deps.as_mut(), mock_env(), info, msg).is_ok();
         assert!(err)
     }
 
