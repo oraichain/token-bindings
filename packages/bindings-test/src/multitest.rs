@@ -61,7 +61,7 @@ impl Module for TokenFactoryModule {
     type QueryT = TokenFactoryQuery;
     type SudoT = Empty;
 
-    // Builds a mock rust implementation of the expected osmosis functionality for testing
+    // Builds a mock rust implementation of the expected Token Factory functionality for testing
     fn execute<ExecC, QueryC>(
         &self,
         api: &dyn Api,
@@ -69,7 +69,7 @@ impl Module for TokenFactoryModule {
         router: &dyn CosmosRouter<ExecC = ExecC, QueryC = QueryC>,
         block: &BlockInfo,
         sender: Addr,
-        msg: TokenFactoryMsg,
+        msg: Self::ExecT,
     ) -> AnyResult<AppResponse>
     where
         ExecC: Debug + Clone + PartialEq + JsonSchema + DeserializeOwned + 'static,
@@ -84,8 +84,6 @@ impl Module for TokenFactoryModule {
                     return Err(ContractError::TokenExists.into());
                 }
                 ADMIN.save(storage, &new_token_denom, &sender)?;
-
-                // TODO: charge the creation fee (once params is supported)
 
                 let mut denoms = DENOMS_BY_CREATOR
                     .may_load(storage, &sender)?
@@ -177,7 +175,7 @@ impl Module for TokenFactoryModule {
         ExecC: Debug + Clone + PartialEq + JsonSchema + DeserializeOwned + 'static,
         QueryC: CustomQuery + DeserializeOwned + 'static,
     {
-        bail!("sudo not implemented for OsmosisModule")
+        bail!("sudo not implemented for TokenFactoryModule")
     }
 
     fn query(
@@ -186,7 +184,7 @@ impl Module for TokenFactoryModule {
         storage: &dyn Storage,
         _querier: &dyn Querier,
         _block: &BlockInfo,
-        request: TokenFactoryQuery,
+        request: Self::QueryT,
     ) -> anyhow::Result<Binary> {
         match request {
             TokenFactoryQuery::FullDenom {
