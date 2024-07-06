@@ -1,6 +1,6 @@
 use cosmwasm_std::{QuerierWrapper, StdResult};
 
-use crate::query::{FullDenomResponse, TokenFactoryQuery};
+use crate::query::{FullDenomResponse, TokenFactoryQuery, TokenFactoryQueryEnum};
 
 /// This is a helper wrapper to easily use our custom queries
 pub struct TokenQuerier<'a> {
@@ -17,10 +17,10 @@ impl<'a> TokenQuerier<'a> {
         creator_addr: String,
         subdenom: String,
     ) -> StdResult<FullDenomResponse> {
-        let full_denom_query = TokenFactoryQuery::FullDenom {
+        let full_denom_query = TokenFactoryQuery::Token(TokenFactoryQueryEnum::FullDenom {
             creator_addr,
             subdenom,
-        };
+        });
         self.querier.query(&full_denom_query.into())
     }
 }

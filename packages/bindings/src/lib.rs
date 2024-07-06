@@ -3,10 +3,10 @@ mod querier;
 mod query;
 mod types;
 
-pub use msg::{CreateDenomResponse, TokenFactoryMsg};
+pub use msg::{CreateDenomResponse, TokenFactoryMsg, TokenFactoryMsgOptions};
 pub use querier::TokenQuerier;
 pub use query::{
     AdminResponse, DenomsByCreatorResponse, FullDenomResponse, MetadataResponse, ParamsResponse,
-    TokenFactoryQuery,
+    TokenFactoryQuery, TokenFactoryQueryEnum,
 };
 pub use types::{DenomUnit, Metadata, Params};

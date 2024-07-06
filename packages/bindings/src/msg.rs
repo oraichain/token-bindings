@@ -2,9 +2,14 @@ use crate::types::Metadata;
 use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{Binary, CosmosMsg, CustomMsg, StdResult, Uint128};
 
-/// Special messages to be supported by any chain that supports token_factory
 #[cw_serde]
 pub enum TokenFactoryMsg {
+    Token(TokenFactoryMsgOptions),
+}
+
+/// Special messages to be supported by any chain that supports token_factory
+#[cw_serde]
+pub enum TokenFactoryMsgOptions {
     /// CreateDenom creates a new factory denom, of denomination:
     /// factory/{creating contract bech32 address}/{Subdenom}
     /// Subdenom can be of length at most 44 characters, in [0-9a-zA-Z./]
@@ -57,19 +62,19 @@ pub enum TokenFactoryMsg {
 
 impl TokenFactoryMsg {
     pub fn mint_contract_tokens(denom: String, amount: Uint128, mint_to_address: String) -> Self {
-        TokenFactoryMsg::MintTokens {
+        TokenFactoryMsg::Token(TokenFactoryMsgOptions::MintTokens {
             denom,
             amount,
             mint_to_address,
-        }
+        })
     }
 
     pub fn burn_contract_tokens(denom: String, amount: Uint128, burn_from_address: String) -> Self {
-        TokenFactoryMsg::BurnTokens {
+        TokenFactoryMsg::Token(TokenFactoryMsgOptions::BurnTokens {
             denom,
             amount,
             burn_from_address,
-        }
+        })
     }
 
     pub fn force_transfer_tokens(
@@ -78,12 +83,12 @@ impl TokenFactoryMsg {
         from_address: String,
         to_address: String,
     ) -> Self {
-        TokenFactoryMsg::ForceTransfer {
+        TokenFactoryMsg::Token(TokenFactoryMsgOptions::ForceTransfer {
             denom,
             amount,
             from_address,
             to_address,
-        }
+        })
     }
 }
 

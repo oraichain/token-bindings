@@ -5,6 +5,15 @@ use cosmwasm_std::CustomQuery;
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum TokenFactoryQuery {
+    #[returns(TokenQueryResponse)]
+    Token(TokenFactoryQueryEnum),
+}
+
+impl CustomQuery for TokenFactoryQuery {}
+
+#[cw_serde]
+#[derive(QueryResponses)]
+pub enum TokenFactoryQueryEnum {
     /// Given a subdenom created by the address `creator_addr` via `OsmosisMsg::CreateDenom`,
     /// returns the full denom as used by `BankMsg::Send`.
     /// You may call `FullDenom { creator_addr: env.contract.address, subdenom }` to find the denom issued
@@ -33,7 +42,14 @@ pub enum TokenFactoryQuery {
     Params {},
 }
 
-impl CustomQuery for TokenFactoryQuery {}
+#[cw_serde]
+pub enum TokenQueryResponse {
+    FullDenomResponse(FullDenomResponse),
+    MetadataResponse(MetadataResponse),
+    AdminResponse(AdminResponse),
+    DenomsByCreatorResponse(DenomsByCreatorResponse),
+    ParamsResponse(ParamsResponse),
+}
 
 #[cw_serde]
 pub struct FullDenomResponse {
