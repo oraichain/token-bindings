@@ -5,8 +5,8 @@ resolver = "2"
 [workspace.package]
 edition = "2021"
 license = "Apache-2.0"
-homepage = "https://junonetwork.io"
-repository = "https://github.com/CosmosContracts/token-bindings"
+homepage = "https://orai.io"
+repository = "https://github.com/oraichain/token-bindings"
 version = "0.11.0"
 
 
@@ -24,9 +24,9 @@ incremental = false
 overflow-checks = true
 
 [workspace.dependencies]
-cosmwasm-schema = "1.1"
-cosmwasm-std = "1.1"
-cosmwasm-storage = "1.1"
+cosmwasm-schema = "1.2.8"
+cosmwasm-std = "1.2.8"
+cosmwasm-storage = "1.2.8"
 schemars = "0.8"
 serde = "1.0"
 itertools = "0.11"
@@ -35,7 +35,6 @@ anyhow = "1"
 thiserror = "1.0"
 cw2 = "1.0.1"
 
-# TODO use upstream when PR merged: https://github.com/CosmWasm/cw-multi-test/pull/51
-cw-multi-test = { git = "https://github.com/JakeHartnell/cw-multi-test.git", branch = "bank-supply-support" }
+cw-multi-test = "0.16.6"
 token-bindings = { path = "./packages/bindings", version = "0.11.0" }
 token-bindings-test = { path = "./packages/bindings-test", version = "0.11.0" }
