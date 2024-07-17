@@ -20,7 +20,7 @@ pub fn instantiate(
     _env: Env,
     info: MessageInfo,
     _msg: InstantiateMsg,
-) -> Result<Response, TokenFactoryError> {
+) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
     let state = State {
         owner: info.sender.clone(),
     };
