@@ -6,9 +6,12 @@ use cosmwasm_std::{
 use cw2::set_contract_version;
 
 use crate::error::TokenFactoryError;
-use crate::msg::{ExecuteMsg, GetDenomResponse, InstantiateMsg, QueryMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{State, STATE};
-use token_bindings::{TokenFactoryMsg, TokenFactoryMsgOptions, TokenFactoryQuery, TokenQuerier};
+use token_bindings::{
+    DenomsByCreatorResponse, FullDenomResponse, Metadata, MetadataResponse, TokenFactoryMsg,
+    TokenFactoryMsgOptions, TokenFactoryQuery, TokenQuerier,
+};
 
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:tokenfactory-demo";
@@ -40,7 +43,7 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
     match msg {
-        ExecuteMsg::CreateDenom { subdenom } => create_denom(subdenom),
+        ExecuteMsg::CreateDenom { subdenom, metadata } => create_denom(subdenom, metadata),
         ExecuteMsg::ChangeAdmin {
             denom,
             new_admin_address,
@@ -64,15 +67,16 @@ pub fn execute(
     }
 }
 
-pub fn create_denom(subdenom: String) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
+pub fn create_denom(
+    subdenom: String,
+    metadata: Option<Metadata>,
+) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
     if subdenom.eq("") {
         return Err(TokenFactoryError::InvalidSubdenom { subdenom });
     }
 
-    let create_denom_msg = TokenFactoryMsg::Token(TokenFactoryMsgOptions::CreateDenom {
-        subdenom,
-        metadata: None,
-    });
+    let create_denom_msg =
+        TokenFactoryMsg::Token(TokenFactoryMsgOptions::CreateDenom { subdenom, metadata });
 
     let res = Response::new()
         .add_attribute("method", "create_denom")
@@ -174,7 +178,9 @@ pub fn query(deps: Deps<TokenFactoryQuery>, _env: Env, msg: QueryMsg) -> StdResu
         QueryMsg::GetDenom {
             creator_address,
             subdenom,
-        } => to_binary(&get_denom(deps, creator_address, subdenom)),
+        } => to_binary(&get_denom(deps, creator_address, subdenom)?),
+        QueryMsg::DenomsByCreator { creator } => to_binary(&get_denoms_by_creator(deps, creator)?),
+        QueryMsg::GetMetadata { denom } => to_binary(&get_metadata(deps, denom)?),
     }
 }
 
@@ -182,13 +188,26 @@ fn get_denom(
     deps: Deps<TokenFactoryQuery>,
     creator_addr: String,
     subdenom: String,
-) -> GetDenomResponse {
+) -> StdResult<FullDenomResponse> {
     let querier = TokenQuerier::new(&deps.querier);
-    let response = querier.full_denom(creator_addr, subdenom).unwrap();
+    let response = querier.full_denom(creator_addr, subdenom)?;
 
-    GetDenomResponse {
-        denom: response.denom,
-    }
+    Ok(response)
+}
+
+fn get_denoms_by_creator(
+    deps: Deps<TokenFactoryQuery>,
+    creator_addr: String,
+) -> StdResult<DenomsByCreatorResponse> {
+    let querier = TokenQuerier::new(&deps.querier);
+    let response = querier.denom_by_creator(creator_addr)?;
+    Ok(response)
+}
+
+fn get_metadata(deps: Deps<TokenFactoryQuery>, denom: String) -> StdResult<MetadataResponse> {
+    let querier = TokenQuerier::new(&deps.querier);
+    let response = querier.metadata(denom)?;
+    Ok(response)
 }
 
 fn validate_denom(
@@ -243,7 +262,7 @@ mod tests {
         SystemError, SystemResult,
     };
     use std::marker::PhantomData;
-    use token_bindings::{TokenFactoryQuery, TokenFactoryQueryEnum};
+    use token_bindings::{FullDenomResponse, TokenFactoryQuery, TokenFactoryQueryEnum};
     use token_bindings_test::TokenFactoryApp;
 
     const DENOM_NAME: &str = "mydenom";
@@ -314,7 +333,7 @@ mod tests {
             subdenom: String::from(DENOM_NAME),
         };
         let response = query(deps.as_ref(), mock_env(), get_denom_query).unwrap();
-        let get_denom_response: GetDenomResponse = from_binary(&response).unwrap();
+        let get_denom_response: FullDenomResponse = from_binary(&response).unwrap();
         assert_eq!(
             format!("{}/{}/{}", DENOM_PREFIX, MOCK_CONTRACT_ADDR, DENOM_NAME),
             get_denom_response.denom
@@ -327,7 +346,10 @@ mod tests {
 
         let subdenom: String = String::from(DENOM_NAME);
 
-        let msg = ExecuteMsg::CreateDenom { subdenom };
+        let msg = ExecuteMsg::CreateDenom {
+            subdenom,
+            metadata: None,
+        };
         let info = mock_info("creator", &coins(2, "token"));
         let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
@@ -357,7 +379,10 @@ mod tests {
 
         let subdenom: String = String::from("");
 
-        let msg = ExecuteMsg::CreateDenom { subdenom };
+        let msg = ExecuteMsg::CreateDenom {
+            subdenom,
+            metadata: None,
+        };
         let info = mock_info("creator", &coins(2, "token"));
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
         assert_eq!(

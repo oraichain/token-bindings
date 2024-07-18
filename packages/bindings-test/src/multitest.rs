@@ -8,8 +8,8 @@ use thiserror::Error;
 
 use cosmwasm_std::testing::{MockApi, MockStorage};
 use cosmwasm_std::{
-    coins, to_binary, Addr, Api, Binary, BlockInfo, CustomQuery, Empty, Querier, QuerierResult,
-    StdError, Storage,
+    coins, to_binary, Addr, Api, BankMsg, Binary, BlockInfo, Coin, CustomQuery, Empty, Querier,
+    QuerierResult, StdError, Storage,
 };
 use cw_multi_test::{
     App, AppResponse, BankKeeper, BankSudo, BasicAppBuilder, CosmosRouter, Module, WasmKeeper,
@@ -18,13 +18,15 @@ use cw_storage_plus::Map;
 
 use token_bindings::{
     AdminResponse, CreateDenomResponse, DenomsByCreatorResponse, FullDenomResponse, Metadata,
-    MetadataResponse, TokenFactoryMsg, TokenFactoryMsgOptions, TokenFactoryQuery,
-    TokenFactoryQueryEnum,
+    MetadataResponse, Params, ParamsResponse, TokenFactoryMsg, TokenFactoryMsgOptions,
+    TokenFactoryQuery, TokenFactoryQueryEnum,
 };
 
 use crate::error::ContractError;
 
-pub struct TokenFactoryModule {}
+pub struct TokenFactoryModule {
+    denom_creation_fee: Vec<Coin>,
+}
 
 /// How many seconds per block
 /// (when we increment block.height, use this multiplier for block.time)
@@ -119,20 +121,45 @@ impl Module for TokenFactoryModule {
                     to_address: mint_to_address,
                     amount: coins(amount.u128(), &denom),
                 };
-                router.sudo(api, storage, block, mint.into())?;
-                Ok(AppResponse::default())
+                let res = router.sudo(api, storage, block, mint.into())?;
+                Ok(res)
             }
             TokenFactoryMsg::Token(TokenFactoryMsgOptions::BurnTokens {
                 denom,
                 amount,
                 burn_from_address,
-            }) => todo!(),
+            }) => {
+                let msg = BankMsg::Burn {
+                    amount: coins(amount.u128(), &denom),
+                };
+                let res = router.execute(
+                    api,
+                    storage,
+                    block,
+                    Addr::unchecked(burn_from_address),
+                    msg.into(),
+                )?;
+                Ok(res)
+            }
             TokenFactoryMsg::Token(TokenFactoryMsgOptions::ForceTransfer {
                 denom,
                 amount,
                 from_address,
                 to_address,
-            }) => todo!(),
+            }) => {
+                let msg = BankMsg::Send {
+                    to_address,
+                    amount: coins(amount.u128(), &denom),
+                };
+                let res = router.execute(
+                    api,
+                    storage,
+                    block,
+                    Addr::unchecked(from_address),
+                    msg.into(),
+                )?;
+                Ok(res)
+            }
             TokenFactoryMsg::Token(TokenFactoryMsgOptions::ChangeAdmin {
                 denom,
                 new_admin_address,
@@ -212,7 +239,12 @@ impl Module for TokenFactoryModule {
                     .unwrap_or_default();
                 Ok(to_binary(&DenomsByCreatorResponse { denoms })?)
             }
-            TokenFactoryQuery::Token(TokenFactoryQueryEnum::Params {}) => todo!(),
+            TokenFactoryQuery::Token(TokenFactoryQueryEnum::Params {}) => {
+                let params = Params {
+                    denom_creation_fee: self.denom_creation_fee.clone(),
+                };
+                Ok(to_binary(&ParamsResponse { params })?)
+            }
         }
     }
 }
@@ -267,7 +299,9 @@ impl TokenFactoryApp {
     pub fn new() -> Self {
         Self(
             BasicAppBuilder::<TokenFactoryMsg, TokenFactoryQuery>::new_custom()
-                .with_custom(TokenFactoryModule {})
+                .with_custom(TokenFactoryModule {
+                    denom_creation_fee: vec![],
+                })
                 .build(|_router, _, _storage| {
                     // router.custom.set_owner(storage, &owner).unwrap();
                 }),
@@ -367,15 +401,38 @@ mod tests {
         app.execute(contract.clone(), create.into()).unwrap();
 
         // now we can mint
-        app.execute(contract, msg.into()).unwrap();
+        app.execute(contract.clone(), msg.into()).unwrap();
 
         // we got tokens!
         let end = app.wrap().query_balance(rcpt.as_str(), &denom).unwrap();
-        let expected = Coin { denom, amount };
+        let expected = Coin {
+            denom: denom.to_string(),
+            amount,
+        };
         assert_eq!(end, expected);
 
         // but no minting of unprefixed version
         let empty = app.wrap().query_balance(rcpt.as_str(), subdenom).unwrap();
         assert_eq!(empty.amount, Uint128::zero());
+
+        // now transfer to other recipient
+        let bob_addr = Addr::unchecked("bob");
+        app.execute(
+            contract.clone(),
+            TokenFactoryMsg::Token(TokenFactoryMsgOptions::ForceTransfer {
+                denom: denom.to_string(),
+                amount,
+                from_address: rcpt.to_string(),
+                to_address: bob_addr.to_string(),
+            })
+            .into(),
+        )
+        .unwrap();
+
+        let end = app.wrap().query_balance(rcpt.as_str(), &denom).unwrap();
+        assert_eq!(end.amount, Uint128::zero());
+
+        let bob_amount = app.wrap().query_balance(bob_addr.as_str(), &denom).unwrap();
+        assert_eq!(bob_amount, expected);
     }
 }

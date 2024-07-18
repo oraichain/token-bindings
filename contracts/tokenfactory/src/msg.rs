@@ -1,5 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Uint128;
+use token_bindings::{DenomsByCreatorResponse, FullDenomResponse, Metadata, MetadataResponse};
 
 #[cw_serde]
 pub struct InstantiateMsg {}
@@ -8,6 +9,7 @@ pub struct InstantiateMsg {}
 pub enum ExecuteMsg {
     CreateDenom {
         subdenom: String,
+        metadata: Option<Metadata>,
     },
     ChangeAdmin {
         denom: String,
@@ -34,15 +36,13 @@ pub enum ExecuteMsg {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(GetDenomResponse)]
+    #[returns(FullDenomResponse)]
     GetDenom {
         creator_address: String,
         subdenom: String,
     },
-}
-
-// We define a custom struct for each query response
-#[cw_serde]
-pub struct GetDenomResponse {
-    pub denom: String,
+    #[returns(MetadataResponse)]
+    GetMetadata { denom: String },
+    #[returns(DenomsByCreatorResponse)]
+    DenomsByCreator { creator: String },
 }
