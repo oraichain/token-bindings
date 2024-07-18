@@ -24,6 +24,7 @@ use token_bindings::{
 
 use crate::error::ContractError;
 
+#[derive(Default)]
 pub struct TokenFactoryModule {
     denom_creation_fee: Vec<Coin>,
 }
@@ -42,6 +43,10 @@ const ADMIN: Map<&str, Addr> = Map::new("admin");
 const DENOMS_BY_CREATOR: Map<&Addr, Vec<String>> = Map::new("denom");
 
 impl TokenFactoryModule {
+    pub fn new(denom_creation_fee: Vec<Coin>) -> Self {
+        Self { denom_creation_fee }
+    }
+
     fn build_denom(&self, creator: &Addr, subdenom: &str) -> Result<String, ContractError> {
         // Minimum validation checks on the full denom.
         // https://github.com/cosmos/cosmos-sdk/blob/2646b474c7beb0c93d4fafd395ef345f41afc251/types/coin.go#L706-L711
