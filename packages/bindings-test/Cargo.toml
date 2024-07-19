@@ -1,13 +1,36 @@
 [package]
 name = "token-bindings-test"
 version = { workspace = true }
-authors = ["Ethan Frey <ethanfrey@users.noreply.github.com>", "Jake Hartnell <jakehartnell@users.noreply.github.com>"]
+authors = [
+    "Ethan Frey <ethanfrey@users.noreply.github.com>",
+    "Jake Hartnell <jakehartnell@users.noreply.github.com>",
+]
 description = "Multitest (and other test helpers) support for Token factory contracts"
 
 edition = { workspace = true }
 homepage = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
+
+[features]
+default = []
+backtrace = ["anyhow/backtrace"]
+cosmwasm_1_1 = ["cosmwasm-std/cosmwasm_1_1", "cw-multi-test/cosmwasm_1_1"]
+cosmwasm_1_2 = [
+    "cosmwasm_1_1",
+    "cosmwasm-std/cosmwasm_1_2",
+    "cw-multi-test/cosmwasm_1_2",
+]
+cosmwasm_1_3 = [
+    "cosmwasm_1_2",
+    "cosmwasm-std/cosmwasm_1_3",
+    "cw-multi-test/cosmwasm_1_3",
+]
+cosmwasm_1_4 = [
+    "cosmwasm_1_3",
+    "cosmwasm-std/cosmwasm_1_4",
+    "cw-multi-test/cosmwasm_1_4",
+]
 
 [dependencies]
 anyhow = { workspace = true }

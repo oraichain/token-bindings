@@ -8,8 +8,8 @@ use thiserror::Error;
 
 use cosmwasm_std::testing::{MockApi, MockStorage};
 use cosmwasm_std::{
-    coins, to_binary, Addr, Api, BankMsg, Binary, BlockInfo, Coin, CustomQuery, Empty, Querier,
-    QuerierResult, StdError, Storage,
+    coins, to_json_binary, Addr, Api, BankMsg, Binary, BlockInfo, Coin, CustomMsg, CustomQuery,
+    Empty, Querier, QuerierResult, StdError, Storage,
 };
 use cw_multi_test::{
     App, AppResponse, BankKeeper, BankSudo, BasicAppBuilder, CosmosRouter, Module, WasmKeeper,
@@ -80,7 +80,7 @@ impl Module for TokenFactoryModule {
         msg: Self::ExecT,
     ) -> AnyResult<AppResponse>
     where
-        ExecC: Debug + Clone + PartialEq + JsonSchema + DeserializeOwned + 'static,
+        ExecC: Debug + Clone + PartialEq + JsonSchema + DeserializeOwned + CustomMsg + 'static,
         QueryC: CustomQuery + DeserializeOwned + 'static,
     {
         match msg {
@@ -227,28 +227,28 @@ impl Module for TokenFactoryModule {
                 let contract = api.addr_validate(&creator_addr)?;
                 let denom = self.build_denom(&contract, &subdenom)?;
                 let res = FullDenomResponse { denom };
-                Ok(to_binary(&res)?)
+                Ok(to_json_binary(&res)?)
             }
             TokenFactoryQuery::Token(TokenFactoryQueryEnum::Metadata { denom }) => {
                 let metadata = METADATA.may_load(storage, &denom)?;
-                Ok(to_binary(&MetadataResponse { metadata })?)
+                Ok(to_json_binary(&MetadataResponse { metadata })?)
             }
             TokenFactoryQuery::Token(TokenFactoryQueryEnum::Admin { denom }) => {
                 let admin = ADMIN.load(storage, &denom)?.to_string();
-                Ok(to_binary(&AdminResponse { admin })?)
+                Ok(to_json_binary(&AdminResponse { admin })?)
             }
             TokenFactoryQuery::Token(TokenFactoryQueryEnum::DenomsByCreator { creator }) => {
                 let creator = api.addr_validate(&creator)?;
                 let denoms = DENOMS_BY_CREATOR
                     .may_load(storage, &creator)?
                     .unwrap_or_default();
-                Ok(to_binary(&DenomsByCreatorResponse { denoms })?)
+                Ok(to_json_binary(&DenomsByCreatorResponse { denoms })?)
             }
             TokenFactoryQuery::Token(TokenFactoryQueryEnum::Params {}) => {
                 let params = Params {
                     denom_creation_fee: self.denom_creation_fee.clone(),
                 };
-                Ok(to_binary(&ParamsResponse { params })?)
+                Ok(to_json_binary(&ParamsResponse { params })?)
             }
         }
     }
