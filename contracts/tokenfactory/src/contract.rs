@@ -1,7 +1,7 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128,
+    to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128,
 };
 use cw2::set_contract_version;
 
@@ -178,9 +178,11 @@ pub fn query(deps: Deps<TokenFactoryQuery>, _env: Env, msg: QueryMsg) -> StdResu
         QueryMsg::GetDenom {
             creator_address,
             subdenom,
-        } => to_binary(&get_denom(deps, creator_address, subdenom)?),
-        QueryMsg::DenomsByCreator { creator } => to_binary(&get_denoms_by_creator(deps, creator)?),
-        QueryMsg::GetMetadata { denom } => to_binary(&get_metadata(deps, denom)?),
+        } => to_json_binary(&get_denom(deps, creator_address, subdenom)?),
+        QueryMsg::DenomsByCreator { creator } => {
+            to_json_binary(&get_denoms_by_creator(deps, creator)?)
+        }
+        QueryMsg::GetMetadata { denom } => to_json_binary(&get_metadata(deps, denom)?),
     }
 }
 
@@ -258,8 +260,8 @@ mod tests {
         mock_env, mock_info, MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR,
     };
     use cosmwasm_std::{
-        coins, from_binary, Attribute, ContractResult, CosmosMsg, OwnedDeps, Querier, StdError,
-        SystemError, SystemResult,
+        coins, from_json, to_json_binary, Attribute, ContractResult, CosmosMsg, OwnedDeps, Querier,
+        StdError, SystemError, SystemResult,
     };
     use std::marker::PhantomData;
     use token_bindings::{FullDenomResponse, TokenFactoryQuery, TokenFactoryQueryEnum};
@@ -287,7 +289,7 @@ mod tests {
                     creator_addr,
                     subdenom,
                 }) => {
-                    let binary_request = to_binary(a).unwrap();
+                    let binary_request = to_json_binary(a).unwrap();
 
                     if creator_addr.eq("") {
                         return SystemResult::Err(SystemError::InvalidRequest {
@@ -333,7 +335,7 @@ mod tests {
             subdenom: String::from(DENOM_NAME),
         };
         let response = query(deps.as_ref(), mock_env(), get_denom_query).unwrap();
-        let get_denom_response: FullDenomResponse = from_binary(&response).unwrap();
+        let get_denom_response: FullDenomResponse = from_json(&response).unwrap();
         assert_eq!(
             format!("{}/{}/{}", DENOM_PREFIX, MOCK_CONTRACT_ADDR, DENOM_NAME),
             get_denom_response.denom
