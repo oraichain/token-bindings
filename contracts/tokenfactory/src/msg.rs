@@ -3,13 +3,20 @@ use cosmwasm_std::Uint128;
 use token_bindings::{DenomsByCreatorResponse, FullDenomResponse, Metadata, MetadataResponse};
 
 #[cw_serde]
-pub struct InstantiateMsg {}
+pub struct InstantiateMsg {
+    pub fee_denom: String,
+    pub fee_amount: Uint128,
+}
 
 #[cw_serde]
 pub enum ExecuteMsg {
     CreateDenom {
         subdenom: String,
         metadata: Option<Metadata>,
+    },
+    ChangeDenomOwner {
+        denom: String,
+        new_admin_address: String,
     },
     ChangeAdmin {
         denom: String,
