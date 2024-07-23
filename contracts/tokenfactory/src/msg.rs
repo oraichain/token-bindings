@@ -1,6 +1,6 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::Uint128;
-use token_bindings::{DenomsByCreatorResponse, FullDenomResponse, Metadata, MetadataResponse};
+use token_bindings::Metadata;
 
 #[cw_serde]
 pub struct InstantiateMsg {
@@ -43,13 +43,13 @@ pub enum ExecuteMsg {
 #[cw_serde]
 #[derive(QueryResponses)]
 pub enum QueryMsg {
-    #[returns(FullDenomResponse)]
+    #[returns(token_bindings::FullDenomResponse)]
     GetDenom {
         creator_address: String,
         subdenom: String,
     },
-    #[returns(MetadataResponse)]
+    #[returns(token_bindings::MetadataResponse)]
     GetMetadata { denom: String },
-    #[returns(DenomsByCreatorResponse)]
+    #[returns(token_bindings::DenomsByCreatorResponse)]
     DenomsByCreator { creator: String },
 }
