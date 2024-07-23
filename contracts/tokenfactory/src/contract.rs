@@ -1,13 +1,14 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128,
+    to_json_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128,
 };
 use cw2::set_contract_version;
+use cw_utils::one_coin;
 
 use crate::error::TokenFactoryError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{State, STATE};
+use crate::state::{Config, CONFIG, DENOM_OWNER};
 use token_bindings::{
     DenomsByCreatorResponse, FullDenomResponse, Metadata, MetadataResponse, TokenFactoryMsg,
     TokenFactoryMsgOptions, TokenFactoryQuery, TokenQuerier,
@@ -22,13 +23,16 @@ pub fn instantiate(
     deps: DepsMut<TokenFactoryQuery>,
     _env: Env,
     info: MessageInfo,
-    _msg: InstantiateMsg,
+    msg: InstantiateMsg,
 ) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
-    let state = State {
+    let config = Config {
         owner: info.sender.clone(),
+        fee_denom: msg.fee_denom,
+        fee_amount: msg.fee_amount,
     };
+
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    STATE.save(deps.storage, &state)?;
+    CONFIG.save(deps.storage, &config)?;
 
     Ok(Response::new()
         .add_attribute("method", "instantiate")
@@ -38,45 +42,67 @@ pub fn instantiate(
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn execute(
     deps: DepsMut<TokenFactoryQuery>,
-    _env: Env,
-    _info: MessageInfo,
+    env: Env,
+    info: MessageInfo,
     msg: ExecuteMsg,
 ) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
     match msg {
-        ExecuteMsg::CreateDenom { subdenom, metadata } => create_denom(subdenom, metadata),
+        ExecuteMsg::CreateDenom { subdenom, metadata } => {
+            create_denom(deps, env, info, subdenom, metadata)
+        }
+        ExecuteMsg::ChangeDenomOwner {
+            denom,
+            new_admin_address,
+        } => change_denom_owner(deps, info, denom, new_admin_address),
         ExecuteMsg::ChangeAdmin {
             denom,
             new_admin_address,
-        } => change_admin(deps, denom, new_admin_address),
+        } => change_admin(deps, info, denom, new_admin_address),
         ExecuteMsg::MintTokens {
             denom,
             amount,
             mint_to_address,
-        } => mint_tokens(deps, denom, amount, mint_to_address),
+        } => mint_tokens(deps, info, denom, amount, mint_to_address),
         ExecuteMsg::BurnTokens {
             denom,
             amount,
             burn_from_address,
-        } => burn_tokens(deps, denom, amount, burn_from_address),
+        } => burn_tokens(deps, info, denom, amount, burn_from_address),
         ExecuteMsg::ForceTransfer {
             denom,
             amount,
             from_address,
             to_address,
-        } => force_transfer(deps, denom, amount, from_address, to_address),
+        } => force_transfer(deps, info, denom, amount, from_address, to_address),
     }
 }
 
 pub fn create_denom(
+    deps: DepsMut<TokenFactoryQuery>,
+    env: Env,
+    info: MessageInfo,
     subdenom: String,
     metadata: Option<Metadata>,
 ) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
+    let config = CONFIG.load(deps.storage)?;
+    if config.fee_amount.ne(&Uint128::zero()) {
+        let fund = one_coin(&info)?;
+        if (fund.denom, fund.amount) != (config.fee_denom, config.fee_amount) {
+            return Err(TokenFactoryError::InvalidFund {});
+        }
+    }
+
     if subdenom.eq("") {
         return Err(TokenFactoryError::InvalidSubdenom { subdenom });
     }
 
-    let create_denom_msg =
-        TokenFactoryMsg::Token(TokenFactoryMsgOptions::CreateDenom { subdenom, metadata });
+    let create_denom_msg = TokenFactoryMsg::Token(TokenFactoryMsgOptions::CreateDenom {
+        subdenom: subdenom.clone(),
+        metadata,
+    });
+
+    let full_denom = format!("factory/{}/{}", env.contract.address, subdenom);
+    DENOM_OWNER.save(deps.storage, full_denom, &info.sender)?;
 
     let res = Response::new()
         .add_attribute("method", "create_denom")
@@ -85,13 +111,35 @@ pub fn create_denom(
     Ok(res)
 }
 
+pub fn change_denom_owner(
+    mut deps: DepsMut<TokenFactoryQuery>,
+    info: MessageInfo,
+    denom: String,
+    new_admin_address: String,
+) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
+    let new_owner = deps.api.addr_validate(&new_admin_address)?;
+
+    validate_denom_owner(deps.as_ref(), denom.clone(), info.sender)?;
+    validate_denom(deps.branch(), denom.clone())?;
+
+    DENOM_OWNER.save(deps.storage, denom, &new_owner)?;
+
+    let res = Response::new()
+        .add_attribute("method", "change_denom_owner")
+        .add_attribute("new_owner", new_admin_address);
+
+    Ok(res)
+}
+
 pub fn change_admin(
     deps: DepsMut<TokenFactoryQuery>,
+    info: MessageInfo,
     denom: String,
     new_admin_address: String,
 ) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
     deps.api.addr_validate(&new_admin_address)?;
 
+    validate_denom_owner(deps.as_ref(), denom.clone(), info.sender)?;
     validate_denom(deps, denom.clone())?;
 
     let change_admin_msg = TokenFactoryMsg::Token(TokenFactoryMsgOptions::ChangeAdmin {
@@ -108,10 +156,12 @@ pub fn change_admin(
 
 pub fn mint_tokens(
     deps: DepsMut<TokenFactoryQuery>,
+    info: MessageInfo,
     denom: String,
     amount: Uint128,
     mint_to_address: String,
 ) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
+    validate_denom_owner(deps.as_ref(), denom.clone(), info.sender)?;
     deps.api.addr_validate(&mint_to_address)?;
 
     if amount.eq(&Uint128::new(0_u128)) {
@@ -131,6 +181,7 @@ pub fn mint_tokens(
 
 pub fn burn_tokens(
     deps: DepsMut<TokenFactoryQuery>,
+    info: MessageInfo,
     denom: String,
     amount: Uint128,
     burn_from_address: String,
@@ -139,6 +190,7 @@ pub fn burn_tokens(
         return Result::Err(TokenFactoryError::ZeroAmount {});
     }
 
+    validate_denom_owner(deps.as_ref(), denom.clone(), info.sender)?;
     validate_denom(deps, denom.clone())?;
 
     let burn_token_msg = TokenFactoryMsg::burn_contract_tokens(denom, amount, burn_from_address);
@@ -152,6 +204,7 @@ pub fn burn_tokens(
 
 pub fn force_transfer(
     deps: DepsMut<TokenFactoryQuery>,
+    info: MessageInfo,
     denom: String,
     amount: Uint128,
     from_address: String,
@@ -161,6 +214,7 @@ pub fn force_transfer(
         return Result::Err(TokenFactoryError::ZeroAmount {});
     }
 
+    validate_denom_owner(deps.as_ref(), denom.clone(), info.sender)?;
     validate_denom(deps, denom.clone())?;
 
     let force_msg = TokenFactoryMsg::force_transfer_tokens(denom, amount, from_address, to_address);
@@ -253,6 +307,17 @@ fn validate_denom(
     Result::Ok(())
 }
 
+fn validate_denom_owner(
+    deps: Deps<TokenFactoryQuery>,
+    denom: String,
+    owner: Addr,
+) -> Result<(), TokenFactoryError> {
+    let denom_owner = DENOM_OWNER.load(deps.storage, denom)?;
+    if denom_owner.ne(&owner) {
+        return Err(TokenFactoryError::Unauthorized {});
+    }
+    Ok(())
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -260,8 +325,8 @@ mod tests {
         mock_env, mock_info, MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR,
     };
     use cosmwasm_std::{
-        coins, from_json, to_json_binary, Attribute, ContractResult, CosmosMsg, OwnedDeps, Querier,
-        StdError, SystemError, SystemResult,
+        attr, coins, from_json, to_json_binary, Attribute, ContractResult, CosmosMsg, OwnedDeps,
+        Querier, StdError, SystemError, SystemResult,
     };
     use std::marker::PhantomData;
     use token_bindings::{FullDenomResponse, TokenFactoryQuery, TokenFactoryQueryEnum};
@@ -320,7 +385,10 @@ mod tests {
     fn proper_initialization() {
         let mut deps = mock_dependencies();
 
-        let msg = InstantiateMsg {};
+        let msg = InstantiateMsg {
+            fee_denom: "orai".to_string(),
+            fee_amount: Uint128::new(1000000),
+        };
         let info = mock_info("creator", &coins(1000, "uosmo"));
 
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -353,8 +421,25 @@ mod tests {
             metadata: None,
         };
         let info = mock_info("creator", &coins(2, "token"));
-        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
+        // case 1: invalid fund
+        CONFIG
+            .save(
+                deps.as_mut().storage,
+                &Config {
+                    owner: Addr::unchecked("owner"),
+                    fee_amount: Uint128::one(),
+                    fee_denom: "orai".to_string(),
+                },
+            )
+            .unwrap();
+        let err: TokenFactoryError =
+            execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap_err();
+        assert_eq!(err, TokenFactoryError::InvalidFund {});
+
+        // case 2: success
+        let info = mock_info("creator", &coins(1, "orai"));
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(1, res.messages.len());
 
         let expected_message = CosmosMsg::from(TokenFactoryMsg::Token(
@@ -378,7 +463,16 @@ mod tests {
     #[test]
     fn msg_create_denom_invalid_subdenom() {
         let mut deps = mock_dependencies();
-
+        CONFIG
+            .save(
+                deps.as_mut().storage,
+                &Config {
+                    owner: Addr::unchecked("owner"),
+                    fee_amount: Uint128::zero(),
+                    fee_denom: "orai".to_string(),
+                },
+            )
+            .unwrap();
         let subdenom: String = String::from("");
 
         let msg = ExecuteMsg::CreateDenom {
@@ -410,6 +504,26 @@ mod tests {
             denom: String::from(full_denom_name),
             new_admin_address: String::from(NEW_ADMIN_ADDR),
         };
+
+        // case 1: unauthorized
+        DENOM_OWNER
+            .save(
+                deps.as_mut().storage,
+                full_denom_name.to_string(),
+                &Addr::unchecked("sender"),
+            )
+            .unwrap();
+        let err = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap_err();
+        assert_eq!(err, TokenFactoryError::Unauthorized {});
+
+        // case 2: success
+        DENOM_OWNER
+            .save(
+                deps.as_mut().storage,
+                full_denom_name.to_string(),
+                &Addr::unchecked("creator"),
+            )
+            .unwrap();
         let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         assert_eq!(1, res.messages.len());
@@ -477,6 +591,13 @@ mod tests {
             "{}/{}/{}/invalid",
             DENOM_PREFIX, MOCK_CONTRACT_ADDR, DENOM_NAME
         )[..];
+        DENOM_OWNER
+            .save(
+                deps.as_mut().storage,
+                full_denom_name.to_string(),
+                &Addr::unchecked("creator"),
+            )
+            .unwrap();
 
         let msg = ExecuteMsg::ChangeAdmin {
             denom: String::from(full_denom_name),
@@ -502,6 +623,14 @@ mod tests {
 
         let full_denom_name: &str =
             &format!("{}/{}/{}", DENOM_PREFIX, MOCK_CONTRACT_ADDR, DENOM_NAME)[..];
+
+        DENOM_OWNER
+            .save(
+                deps.as_mut().storage,
+                full_denom_name.to_string(),
+                &Addr::unchecked("creator"),
+            )
+            .unwrap();
 
         let info = mock_info("creator", &coins(2, "token"));
 
@@ -533,6 +662,37 @@ mod tests {
     }
 
     #[test]
+    fn msg_mint_tokens_unauthorized() {
+        let mut deps = mock_dependencies();
+
+        const NEW_ADMIN_ADDR: &str = "newadmin";
+
+        let mint_amount = Uint128::new(100_u128);
+
+        let full_denom_name: &str =
+            &format!("{}/{}/{}", DENOM_PREFIX, MOCK_CONTRACT_ADDR, DENOM_NAME)[..];
+
+        DENOM_OWNER
+            .save(
+                deps.as_mut().storage,
+                full_denom_name.to_string(),
+                &Addr::unchecked(NEW_ADMIN_ADDR),
+            )
+            .unwrap();
+
+        let info = mock_info("creator", &coins(2, "token"));
+
+        let msg = ExecuteMsg::MintTokens {
+            denom: String::from(full_denom_name),
+            amount: mint_amount,
+            mint_to_address: String::from(NEW_ADMIN_ADDR),
+        };
+        let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
+
+        assert_eq!(err, TokenFactoryError::Unauthorized {});
+    }
+
+    #[test]
     fn msg_mint_invalid_denom() {
         let mut deps = mock_dependencies();
 
@@ -543,6 +703,13 @@ mod tests {
         let info = mock_info("creator", &coins(2, "token"));
 
         let full_denom_name: &str = &format!("{}/{}", DENOM_PREFIX, MOCK_CONTRACT_ADDR)[..];
+        DENOM_OWNER
+            .save(
+                deps.as_mut().storage,
+                full_denom_name.to_string(),
+                &Addr::unchecked("creator"),
+            )
+            .unwrap();
         let msg = ExecuteMsg::MintTokens {
             denom: String::from(full_denom_name),
             amount: mint_amount,
@@ -572,8 +739,27 @@ mod tests {
             burn_from_address: String::from(""),
             amount: mint_amount,
         };
-        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
 
+        // case 1: unauthorized
+        DENOM_OWNER
+            .save(
+                deps.as_mut().storage,
+                full_denom_name.to_string(),
+                &Addr::unchecked("sender"),
+            )
+            .unwrap();
+        let err = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap_err();
+        assert_eq!(err, TokenFactoryError::Unauthorized {});
+
+        //  case 2: success
+        DENOM_OWNER
+            .save(
+                deps.as_mut().storage,
+                full_denom_name.to_string(),
+                &Addr::unchecked("creator"),
+            )
+            .unwrap();
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(1, res.messages.len());
         let expected_message =
             CosmosMsg::from(TokenFactoryMsg::Token(TokenFactoryMsgOptions::BurnTokens {
@@ -601,6 +787,13 @@ mod tests {
         let burn_amount = Uint128::new(100_u128);
         let full_denom_name: &str =
             &format!("{}/{}/{}", DENOM_PREFIX, MOCK_CONTRACT_ADDR, DENOM_NAME)[..];
+        DENOM_OWNER
+            .save(
+                deps.as_mut().storage,
+                full_denom_name.to_string(),
+                &Addr::unchecked("creator"),
+            )
+            .unwrap();
 
         let info = mock_info("creator", &coins(2, "token"));
 
@@ -633,8 +826,27 @@ mod tests {
             to_address: TRANSFER_TO_ADDR.to_string(),
         };
 
-        let err = execute(deps.as_mut(), mock_env(), info, msg).is_ok();
-        assert!(err)
+        // case 1: unauthorized
+        DENOM_OWNER
+            .save(
+                deps.as_mut().storage,
+                full_denom_name.to_string(),
+                &Addr::unchecked("sender"),
+            )
+            .unwrap();
+        let err = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap_err();
+        assert_eq!(err, TokenFactoryError::Unauthorized {});
+
+        // case 2: success
+        DENOM_OWNER
+            .save(
+                deps.as_mut().storage,
+                full_denom_name.to_string(),
+                &Addr::unchecked("creator"),
+            )
+            .unwrap();
+        let res = execute(deps.as_mut(), mock_env(), info, msg).is_ok();
+        assert!(res);
     }
 
     #[test]
@@ -707,5 +919,57 @@ mod tests {
             }
             err => panic!("Unexpected error: {:?}", err),
         }
+    }
+
+    #[test]
+    fn msg_change_denom_owner() {
+        let mut deps = mock_dependencies();
+
+        const NEW_ADMIN_ADDR: &str = "newadmin";
+
+        let info = mock_info("creator", &coins(2, "token"));
+
+        let full_denom_name: &str =
+            &format!("{}/{}/{}", DENOM_PREFIX, MOCK_CONTRACT_ADDR, DENOM_NAME)[..];
+
+        let msg = ExecuteMsg::ChangeDenomOwner {
+            denom: String::from(full_denom_name),
+            new_admin_address: String::from(NEW_ADMIN_ADDR),
+        };
+
+        // case 1: unauthorized
+        DENOM_OWNER
+            .save(
+                deps.as_mut().storage,
+                full_denom_name.to_string(),
+                &Addr::unchecked("sender"),
+            )
+            .unwrap();
+        let err = execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap_err();
+        assert_eq!(err, TokenFactoryError::Unauthorized {});
+
+        // case 2: success
+        DENOM_OWNER
+            .save(
+                deps.as_mut().storage,
+                full_denom_name.to_string(),
+                &Addr::unchecked("creator"),
+            )
+            .unwrap();
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+
+        assert_eq!(0, res.messages.len());
+
+        assert_eq!(2, res.attributes.len());
+
+        assert_eq!(
+            res.attributes,
+            vec![
+                attr("method", "change_denom_owner"),
+                attr("new_owner", "newadmin")
+            ]
+        );
+
+        assert_eq!(res.data.ok_or(0), Err(0));
     }
 }
