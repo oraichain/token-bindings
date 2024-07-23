@@ -1,11 +1,10 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::Uint128;
+use cosmwasm_std::{Coin, Uint128};
 use token_bindings::Metadata;
 
 #[cw_serde]
 pub struct InstantiateMsg {
-    pub fee_denom: String,
-    pub fee_amount: Uint128,
+    pub fee: Option<Coin>,
 }
 
 #[cw_serde]

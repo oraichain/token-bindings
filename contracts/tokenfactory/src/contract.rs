@@ -4,7 +4,7 @@ use cosmwasm_std::{
     to_json_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128,
 };
 use cw2::set_contract_version;
-use cw_utils::one_coin;
+use cw_utils::must_pay;
 
 use crate::error::TokenFactoryError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
@@ -27,8 +27,7 @@ pub fn instantiate(
 ) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
     let config = Config {
         owner: info.sender.clone(),
-        fee_denom: msg.fee_denom,
-        fee_amount: msg.fee_amount,
+        fee: msg.fee,
     };
 
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
@@ -85,10 +84,12 @@ pub fn create_denom(
     metadata: Option<Metadata>,
 ) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
     let config = CONFIG.load(deps.storage)?;
-    if config.fee_amount.ne(&Uint128::zero()) {
-        let fund = one_coin(&info)?;
-        if (fund.denom, fund.amount) != (config.fee_denom, config.fee_amount) {
-            return Err(TokenFactoryError::InvalidFund {});
+    if let Some(fee) = config.fee {
+        if !fee.amount.is_zero() {
+            let fund = must_pay(&info, &fee.denom)?;
+            if fund != fee.amount {
+                return Err(TokenFactoryError::InvalidFund {});
+            }
         }
     }
 
@@ -325,8 +326,8 @@ mod tests {
         mock_env, mock_info, MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR,
     };
     use cosmwasm_std::{
-        attr, coins, from_json, to_json_binary, Attribute, ContractResult, CosmosMsg, OwnedDeps,
-        Querier, StdError, SystemError, SystemResult,
+        attr, coin, coins, from_json, to_json_binary, Attribute, ContractResult, CosmosMsg,
+        OwnedDeps, Querier, StdError, SystemError, SystemResult,
     };
     use std::marker::PhantomData;
     use token_bindings::{FullDenomResponse, TokenFactoryQuery, TokenFactoryQueryEnum};
@@ -386,8 +387,7 @@ mod tests {
         let mut deps = mock_dependencies();
 
         let msg = InstantiateMsg {
-            fee_denom: "orai".to_string(),
-            fee_amount: Uint128::new(1000000),
+            fee: Some(coin(1000000, "orai")),
         };
         let info = mock_info("creator", &coins(1000, "uosmo"));
 
@@ -428,8 +428,7 @@ mod tests {
                 deps.as_mut().storage,
                 &Config {
                     owner: Addr::unchecked("owner"),
-                    fee_amount: Uint128::one(),
-                    fee_denom: "orai".to_string(),
+                    fee: Some(coin(1, "orai")),
                 },
             )
             .unwrap();
@@ -468,8 +467,7 @@ mod tests {
                 deps.as_mut().storage,
                 &Config {
                     owner: Addr::unchecked("owner"),
-                    fee_amount: Uint128::zero(),
-                    fee_denom: "orai".to_string(),
+                    fee: None,
                 },
             )
             .unwrap();
