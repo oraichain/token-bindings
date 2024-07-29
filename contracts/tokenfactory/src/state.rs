@@ -6,7 +6,6 @@ use cw_storage_plus::{Item, Map};
 
 #[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq, JsonSchema)]
 pub struct Config {
-    pub owner: Addr,
     pub fee: Option<Coin>,
 }
 

@@ -25,10 +25,7 @@ pub fn instantiate(
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
-    let config = Config {
-        owner: info.sender.clone(),
-        fee: msg.fee,
-    };
+    let config = Config { fee: msg.fee };
 
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     CONFIG.save(deps.storage, &config)?;
@@ -329,6 +326,7 @@ mod tests {
         attr, coin, coins, from_json, to_json_binary, Attribute, ContractResult, CosmosMsg,
         OwnedDeps, Querier, StdError, SystemError, SystemResult,
     };
+    use cw_utils::PaymentError;
     use std::marker::PhantomData;
     use token_bindings::{FullDenomResponse, TokenFactoryQuery, TokenFactoryQueryEnum};
     use token_bindings_test::TokenFactoryApp;
@@ -427,14 +425,16 @@ mod tests {
             .save(
                 deps.as_mut().storage,
                 &Config {
-                    owner: Addr::unchecked("owner"),
                     fee: Some(coin(1, "orai")),
                 },
             )
             .unwrap();
         let err: TokenFactoryError =
             execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap_err();
-        assert_eq!(err, TokenFactoryError::InvalidFund {});
+        assert_eq!(
+            err,
+            TokenFactoryError::Payment(PaymentError::MissingDenom("orai".to_string()))
+        );
 
         // case 2: success
         let info = mock_info("creator", &coins(1, "orai"));
@@ -463,13 +463,7 @@ mod tests {
     fn msg_create_denom_invalid_subdenom() {
         let mut deps = mock_dependencies();
         CONFIG
-            .save(
-                deps.as_mut().storage,
-                &Config {
-                    owner: Addr::unchecked("owner"),
-                    fee: None,
-                },
-            )
+            .save(deps.as_mut().storage, &Config { fee: None })
             .unwrap();
         let subdenom: String = String::from("");
 
