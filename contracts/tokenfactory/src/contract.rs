@@ -100,9 +100,7 @@ pub fn update_config(
 
     CONFIG.save(deps.storage, &config)?;
 
-    let res = Response::new().add_attribute("method", "update_config");
-
-    Ok(res)
+    Ok(Response::new().add_attribute("method", "update_config"))
 }
 
 pub fn create_denom(
@@ -358,6 +356,7 @@ mod tests {
         attr, coin, coins, from_json, to_json_binary, Attribute, ContractResult, CosmosMsg,
         OwnedDeps, Querier, StdError, SystemError, SystemResult,
     };
+
     use std::marker::PhantomData;
     use token_bindings::{FullDenomResponse, TokenFactoryQuery, TokenFactoryQueryEnum};
     use token_bindings_test::TokenFactoryApp;
@@ -456,7 +455,7 @@ mod tests {
             .save(
                 deps.as_mut().storage,
                 &Config {
-                    owner: Addr::unchecked("owner"),
+                    owner: info.sender.clone(),
                     fee: Some(coin(1, "orai")),
                 },
             )
@@ -504,7 +503,7 @@ mod tests {
             .save(
                 deps.as_mut().storage,
                 &Config {
-                    owner: Addr::unchecked("owner"),
+                    owner: Addr::unchecked("creator"),
                     fee: None,
                 },
             )

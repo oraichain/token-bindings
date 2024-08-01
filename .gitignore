@@ -5,3 +5,4 @@ packages/*/schema
 contracts/*/schema
 .vscode
 .DS_Store
+.env
