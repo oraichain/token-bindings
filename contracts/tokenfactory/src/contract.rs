@@ -1,7 +1,8 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_json_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128,
+    to_json_binary, Addr, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
+    Uint128,
 };
 use cw2::set_contract_version;
 use cw_utils::must_pay;
@@ -46,6 +47,7 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
     match msg {
+        ExecuteMsg::UpdateConfig { owner, fee } => update_config(deps, info, owner, fee),
         ExecuteMsg::CreateDenom { subdenom, metadata } => {
             create_denom(deps, env, info, subdenom, metadata)
         }
@@ -74,6 +76,33 @@ pub fn execute(
             to_address,
         } => force_transfer(deps, info, denom, amount, from_address, to_address),
     }
+}
+
+pub fn update_config(
+    deps: DepsMut<TokenFactoryQuery>,
+    info: MessageInfo,
+    owner: Option<Addr>,
+    fee: Option<Coin>,
+) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
+    let mut config = CONFIG.load(deps.storage)?;
+
+    if config.owner != info.sender {
+        return Err(TokenFactoryError::Unauthorized {});
+    }
+
+    if let Some(owner) = owner {
+        config.owner = owner;
+    }
+
+    if let Some(fee) = fee {
+        config.fee = Some(fee);
+    }
+
+    CONFIG.save(deps.storage, &config)?;
+
+    let res = Response::new().add_attribute("method", "update_config");
+
+    Ok(res)
 }
 
 pub fn create_denom(
@@ -422,7 +451,7 @@ mod tests {
         };
         let info = mock_info("creator", &coins(2, "token"));
 
-        // case 1: invalid fund
+        // case 1: missing denom
         CONFIG
             .save(
                 deps.as_mut().storage,
@@ -434,9 +463,18 @@ mod tests {
             .unwrap();
         let err: TokenFactoryError =
             execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap_err();
+        assert_eq!(
+            err,
+            TokenFactoryError::Payment(cw_utils::PaymentError::MissingDenom("orai".to_string()))
+        );
+
+        // case 2: invalid fund
+        let info = mock_info("creator", &coins(2, "orai"));
+        let err: TokenFactoryError =
+            execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap_err();
         assert_eq!(err, TokenFactoryError::InvalidFund {});
 
-        // case 2: success
+        // case 3: success
         let info = mock_info("creator", &coins(1, "orai"));
         let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(1, res.messages.len());

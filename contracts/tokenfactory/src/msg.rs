@@ -1,5 +1,5 @@
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::{Coin, Uint128};
+use cosmwasm_std::{Addr, Coin, Uint128};
 use token_bindings::Metadata;
 
 #[cw_serde]
@@ -9,6 +9,10 @@ pub struct InstantiateMsg {
 
 #[cw_serde]
 pub enum ExecuteMsg {
+    UpdateConfig {
+        owner: Option<Addr>,
+        fee: Option<Coin>,
+    },
     CreateDenom {
         subdenom: String,
         metadata: Option<Metadata>,
