@@ -34,7 +34,6 @@ schemars = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 thiserror = { workspace = true }
 token-bindings = { workspace = true }
-cw-utils = { workspace = true }
 
 [dev-dependencies]
 cw-multi-test = { workspace = true }

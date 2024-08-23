@@ -5,7 +5,6 @@ use cosmwasm_std::{
     Uint128,
 };
 use cw2::set_contract_version;
-use cw_utils::must_pay;
 
 use crate::error::TokenFactoryError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
@@ -24,11 +23,10 @@ pub fn instantiate(
     deps: DepsMut<TokenFactoryQuery>,
     _env: Env,
     info: MessageInfo,
-    msg: InstantiateMsg,
+    _msg: InstantiateMsg,
 ) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
     let config = Config {
         owner: info.sender.clone(),
-        fee: msg.fee,
     };
 
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
@@ -47,7 +45,7 @@ pub fn execute(
     msg: ExecuteMsg,
 ) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
     match msg {
-        ExecuteMsg::UpdateConfig { owner, fee } => update_config(deps, info, owner, fee),
+        ExecuteMsg::UpdateConfig { owner } => update_config(deps, info, owner),
         ExecuteMsg::CreateDenom { subdenom, metadata } => {
             create_denom(deps, env, info, subdenom, metadata)
         }
@@ -82,7 +80,6 @@ pub fn update_config(
     deps: DepsMut<TokenFactoryQuery>,
     info: MessageInfo,
     owner: Option<Addr>,
-    fee: Option<Coin>,
 ) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
     let mut config = CONFIG.load(deps.storage)?;
 
@@ -92,10 +89,6 @@ pub fn update_config(
 
     if let Some(owner) = owner {
         config.owner = owner;
-    }
-
-    if let Some(fee) = fee {
-        config.fee = Some(fee);
     }
 
     CONFIG.save(deps.storage, &config)?;
@@ -110,14 +103,14 @@ pub fn create_denom(
     subdenom: String,
     metadata: Option<Metadata>,
 ) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
-    let config = CONFIG.load(deps.storage)?;
-    if let Some(fee) = config.fee {
-        if !fee.amount.is_zero() {
-            let fund = must_pay(&info, &fee.denom)?;
-            if fund != fee.amount {
-                return Err(TokenFactoryError::InvalidFund {});
-            }
-        }
+    let mut fees: Vec<Coin> = get_params(deps.as_ref())?.params.denom_creation_fee;
+    fees.sort_by(|c1, c2| c1.denom.cmp(&c2.denom));
+
+    let mut funds = info.funds.clone();
+    funds.sort_by(|c1, c2| c1.denom.cmp(&c2.denom));
+
+    if fees.ne(&funds) {
+        return Err(TokenFactoryError::InvalidFund {});
     }
 
     if subdenom.eq("") {
@@ -360,8 +353,8 @@ mod tests {
         mock_env, mock_info, MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR,
     };
     use cosmwasm_std::{
-        attr, coin, coins, from_json, to_json_binary, Attribute, ContractResult, CosmosMsg,
-        OwnedDeps, Querier, StdError, SystemError, SystemResult,
+        attr, coins, from_json, to_json_binary, Attribute, ContractResult, CosmosMsg, OwnedDeps,
+        Querier, StdError, SystemError, SystemResult,
     };
 
     use std::marker::PhantomData;
@@ -421,9 +414,7 @@ mod tests {
     fn proper_initialization() {
         let mut deps = mock_dependencies();
 
-        let msg = InstantiateMsg {
-            fee: Some(coin(1000000, "orai")),
-        };
+        let msg = InstantiateMsg {};
         let info = mock_info("creator", &coins(1000, "uosmo"));
 
         let res = instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
@@ -463,16 +454,12 @@ mod tests {
                 deps.as_mut().storage,
                 &Config {
                     owner: info.sender.clone(),
-                    fee: Some(coin(1, "orai")),
                 },
             )
             .unwrap();
         let err: TokenFactoryError =
             execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap_err();
-        assert_eq!(
-            err,
-            TokenFactoryError::Payment(cw_utils::PaymentError::MissingDenom("orai".to_string()))
-        );
+        assert_eq!(err, TokenFactoryError::InvalidFund {});
 
         // case 2: invalid fund
         let info = mock_info("creator", &coins(2, "orai"));
@@ -481,7 +468,7 @@ mod tests {
         assert_eq!(err, TokenFactoryError::InvalidFund {});
 
         // case 3: success
-        let info = mock_info("creator", &coins(1, "orai"));
+        let info = mock_info("creator", &[]);
         let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(1, res.messages.len());
 
@@ -511,7 +498,6 @@ mod tests {
                 deps.as_mut().storage,
                 &Config {
                     owner: Addr::unchecked("creator"),
-                    fee: None,
                 },
             )
             .unwrap();
@@ -523,12 +509,7 @@ mod tests {
         };
         let info = mock_info("creator", &coins(2, "token"));
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
-        assert_eq!(
-            TokenFactoryError::InvalidSubdenom {
-                subdenom: String::from("")
-            },
-            err
-        );
+        assert_eq!(TokenFactoryError::InvalidFund {}, err);
     }
 
     #[test]
