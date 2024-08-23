@@ -1,8 +1,7 @@
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_json_binary, Addr, Binary, Coin, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
-    Uint128,
+    to_json_binary, Addr, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, Uint128,
 };
 use cw2::set_contract_version;
 
@@ -103,13 +102,9 @@ pub fn create_denom(
     subdenom: String,
     metadata: Option<Metadata>,
 ) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
-    let mut fees: Vec<Coin> = get_params(deps.as_ref())?.params.denom_creation_fee;
-    fees.sort_by(|c1, c2| c1.denom.cmp(&c2.denom));
+    let fees = get_params(deps.as_ref())?.params.denom_creation_fee;
 
-    let mut funds = info.funds.clone();
-    funds.sort_by(|c1, c2| c1.denom.cmp(&c2.denom));
-
-    if fees.ne(&funds) {
+    if fees.ne(&info.funds) {
         return Err(TokenFactoryError::InvalidFund {});
     }
 
