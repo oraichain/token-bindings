@@ -55,4 +55,6 @@ pub enum QueryMsg {
     GetMetadata { denom: String },
     #[returns(token_bindings::DenomsByCreatorResponse)]
     DenomsByCreator { creator: String },
+    #[returns(token_bindings::ParamsResponse)]
+    GetParams {},
 }

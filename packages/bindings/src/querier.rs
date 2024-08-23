@@ -2,7 +2,7 @@ use cosmwasm_std::{QuerierWrapper, StdResult};
 
 use crate::{
     query::{FullDenomResponse, TokenFactoryQuery, TokenFactoryQueryEnum},
-    DenomsByCreatorResponse, MetadataResponse,
+    DenomsByCreatorResponse, MetadataResponse, ParamsResponse,
 };
 
 /// This is a helper wrapper to easily use our custom queries
@@ -36,5 +36,10 @@ impl<'a> TokenQuerier<'a> {
     pub fn metadata(&self, denom: String) -> StdResult<MetadataResponse> {
         let metadata_query = TokenFactoryQuery::Token(TokenFactoryQueryEnum::Metadata { denom });
         self.querier.query(&metadata_query.into())
+    }
+
+    pub fn params(&self) -> StdResult<ParamsResponse> {
+        let params_query = TokenFactoryQuery::Token(TokenFactoryQueryEnum::Params {});
+        self.querier.query(&params_query.into())
     }
 }

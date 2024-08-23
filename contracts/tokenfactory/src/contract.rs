@@ -11,8 +11,8 @@ use crate::error::TokenFactoryError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
 use crate::state::{Config, CONFIG, DENOM_OWNER};
 use token_bindings::{
-    DenomsByCreatorResponse, FullDenomResponse, Metadata, MetadataResponse, TokenFactoryMsg,
-    TokenFactoryMsgOptions, TokenFactoryQuery, TokenQuerier,
+    DenomsByCreatorResponse, FullDenomResponse, Metadata, MetadataResponse, ParamsResponse,
+    TokenFactoryMsg, TokenFactoryMsgOptions, TokenFactoryQuery, TokenQuerier,
 };
 
 // version info for migration info
@@ -265,6 +265,7 @@ pub fn query(deps: Deps<TokenFactoryQuery>, _env: Env, msg: QueryMsg) -> StdResu
             to_json_binary(&get_denoms_by_creator(deps, creator)?)
         }
         QueryMsg::GetMetadata { denom } => to_json_binary(&get_metadata(deps, denom)?),
+        QueryMsg::GetParams {} => to_json_binary(&get_params(deps)?),
     }
 }
 
@@ -291,6 +292,12 @@ fn get_denoms_by_creator(
 fn get_metadata(deps: Deps<TokenFactoryQuery>, denom: String) -> StdResult<MetadataResponse> {
     let querier = TokenQuerier::new(&deps.querier);
     let response = querier.metadata(denom)?;
+    Ok(response)
+}
+
+fn get_params(deps: Deps<TokenFactoryQuery>) -> StdResult<ParamsResponse> {
+    let querier = TokenQuerier::new(&deps.querier);
+    let response = querier.params()?;
     Ok(response)
 }
 
