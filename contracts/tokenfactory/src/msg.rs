@@ -2,6 +2,8 @@ use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Uint128};
 use token_bindings::Metadata;
 
+use crate::info::CoinExtendedInfo;
+
 #[cw_serde]
 pub struct InstantiateMsg {}
 
@@ -13,6 +15,7 @@ pub enum ExecuteMsg {
     CreateDenom {
         subdenom: String,
         metadata: Option<Metadata>,
+        extended_info: Option<CoinExtendedInfo>
     },
     ChangeDenomOwner {
         denom: String,
@@ -21,6 +24,10 @@ pub enum ExecuteMsg {
     ChangeAdmin {
         denom: String,
         new_admin_address: String,
+    },
+    UpdateExtendedInfo {
+        denom: String,
+        extended_info: CoinExtendedInfo,
     },
     MintTokens {
         denom: String,
@@ -48,10 +55,16 @@ pub enum QueryMsg {
         creator_address: String,
         subdenom: String,
     },
-    #[returns(token_bindings::MetadataResponse)]
+    #[returns(MetadataResponse)]
     GetMetadata { denom: String },
     #[returns(token_bindings::DenomsByCreatorResponse)]
     DenomsByCreator { creator: String },
     #[returns(token_bindings::ParamsResponse)]
     GetParams {},
+}
+
+#[cw_serde]
+pub struct MetadataResponse {
+    pub metadata: Option<Metadata>,
+    pub extended_info: Option<CoinExtendedInfo>,
 }

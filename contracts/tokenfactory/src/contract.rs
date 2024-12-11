@@ -6,10 +6,11 @@ use cosmwasm_std::{
 use cw2::set_contract_version;
 
 use crate::error::TokenFactoryError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{Config, CONFIG, DENOM_OWNER};
+use crate::info::CoinExtendedInfo;
+use crate::msg::{ExecuteMsg, InstantiateMsg, MetadataResponse, QueryMsg};
+use crate::state::{Config, CONFIG, DENOM_EXTENDED_INFO, DENOM_OWNER};
 use token_bindings::{
-    DenomsByCreatorResponse, FullDenomResponse, Metadata, MetadataResponse, ParamsResponse,
+    DenomsByCreatorResponse, FullDenomResponse, Metadata, ParamsResponse,
     TokenFactoryMsg, TokenFactoryMsgOptions, TokenFactoryQuery, TokenQuerier,
 };
 
@@ -45,8 +46,8 @@ pub fn execute(
 ) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
     match msg {
         ExecuteMsg::UpdateConfig { owner } => update_config(deps, info, owner),
-        ExecuteMsg::CreateDenom { subdenom, metadata } => {
-            create_denom(deps, env, info, subdenom, metadata)
+        ExecuteMsg::CreateDenom { subdenom, metadata, extended_info } => {
+            create_denom(deps, env, info, subdenom, metadata, extended_info)
         }
         ExecuteMsg::ChangeDenomOwner {
             denom,
@@ -56,6 +57,9 @@ pub fn execute(
             denom,
             new_admin_address,
         } => change_admin(deps, info, denom, new_admin_address),
+        ExecuteMsg::UpdateExtendedInfo { denom, extended_info } => {
+            update_extended_info(deps, info, denom, extended_info)
+        }
         ExecuteMsg::MintTokens {
             denom,
             amount,
@@ -101,6 +105,7 @@ pub fn create_denom(
     info: MessageInfo,
     subdenom: String,
     metadata: Option<Metadata>,
+    extended_info: Option<CoinExtendedInfo>,
 ) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
     let fees = get_params(deps.as_ref())?.params.denom_creation_fee;
 
@@ -118,7 +123,10 @@ pub fn create_denom(
     });
 
     let full_denom = format!("factory/{}/{}", env.contract.address, subdenom);
-    DENOM_OWNER.save(deps.storage, full_denom, &info.sender)?;
+    DENOM_OWNER.save(deps.storage, full_denom.clone(), &info.sender)?;
+    if let Some(extended_info) = extended_info {
+        DENOM_EXTENDED_INFO.save(deps.storage, full_denom, &extended_info)?;
+    }
 
     let res = Response::new()
         .add_attribute("method", "create_denom")
@@ -166,6 +174,23 @@ pub fn change_admin(
     let res = Response::new()
         .add_attribute("method", "change_admin")
         .add_message(change_admin_msg);
+
+    Ok(res)
+}
+
+pub fn update_extended_info(
+    deps: DepsMut<TokenFactoryQuery>,
+    info: MessageInfo,
+    denom: String,
+    extended_info: CoinExtendedInfo,
+) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
+    validate_denom_owner(deps.as_ref(), denom.clone(), info.sender)?;
+
+    DENOM_EXTENDED_INFO.save(deps.storage, denom.clone(), &extended_info)?;
+
+    let res = Response::new()
+        .add_attribute("method", "update_extended_info")
+        .add_attribute("denom", denom);
 
     Ok(res)
 }
@@ -279,8 +304,14 @@ fn get_denoms_by_creator(
 
 fn get_metadata(deps: Deps<TokenFactoryQuery>, denom: String) -> StdResult<MetadataResponse> {
     let querier = TokenQuerier::new(&deps.querier);
+    let extended_info = DENOM_EXTENDED_INFO.may_load(deps.storage, denom.clone())?;
     let response = querier.metadata(denom)?;
-    Ok(response)
+    Ok({
+        MetadataResponse {
+            metadata: response.metadata,
+            extended_info
+        }
+    })
 }
 
 fn get_params(deps: Deps<TokenFactoryQuery>) -> StdResult<ParamsResponse> {
@@ -440,6 +471,7 @@ mod tests {
         let msg = ExecuteMsg::CreateDenom {
             subdenom,
             metadata: None,
+            extended_info: None,
         };
         let info = mock_info("creator", &coins(2, "token"));
 
@@ -501,6 +533,7 @@ mod tests {
         let msg = ExecuteMsg::CreateDenom {
             subdenom,
             metadata: None,
+            extended_info: None,
         };
         let info = mock_info("creator", &coins(2, "token"));
         let err = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
