@@ -401,6 +401,8 @@ mod tests {
                 display: Some("FUNDZ".to_string()),
                 name: Some("Fundz pays".to_string()),
                 symbol: Some("FUNDZ".to_string()),
+                uri: None,
+                uri_hash: None,
             }),
         });
         app.execute(contract.clone(), create.into()).unwrap();

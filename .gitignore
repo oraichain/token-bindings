@@ -6,3 +6,4 @@ contracts/*/schema
 .vscode
 .DS_Store
 .env
+build

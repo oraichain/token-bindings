@@ -16,6 +16,10 @@ pub struct Metadata {
     /// symbol is the token symbol usually shown on exchanges (eg: ATOM). This can
     /// be the same as the display.
     pub symbol: Option<String>,
+    /// uri is the location of an icon for this token
+    pub uri: Option<String>,
+    /// uri_hash is the hash of the uri
+    pub uri_hash: Option<String>,
 }
 
 /// This maps to cosmos.bank.v1beta1.DenomUnit protobuf struct
