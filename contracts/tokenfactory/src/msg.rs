@@ -2,6 +2,8 @@ use cosmwasm_schema::{cw_serde, QueryResponses};
 use cosmwasm_std::{Addr, Uint128};
 use token_bindings::Metadata;
 
+use crate::state::ExtendedInfo;
+
 #[cw_serde]
 pub struct InstantiateMsg {}
 
@@ -54,4 +56,6 @@ pub enum QueryMsg {
     DenomsByCreator { creator: String },
     #[returns(token_bindings::ParamsResponse)]
     GetParams {},
+    #[returns(ExtendedInfo)]
+    GetExtendedInfo { denom: String },
 }

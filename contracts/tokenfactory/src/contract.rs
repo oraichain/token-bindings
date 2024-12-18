@@ -7,7 +7,7 @@ use cw2::set_contract_version;
 
 use crate::error::TokenFactoryError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{Config, CONFIG, DENOM_OWNER};
+use crate::state::{Config, ExtendedInfo, CONFIG, DENOM_EXTENDED_INFO, DENOM_OWNER};
 use token_bindings::{
     DenomsByCreatorResponse, FullDenomResponse, Metadata, MetadataResponse, ParamsResponse,
     TokenFactoryMsg, TokenFactoryMsgOptions, TokenFactoryQuery, TokenQuerier,
@@ -114,11 +114,23 @@ pub fn create_denom(
 
     let create_denom_msg = TokenFactoryMsg::Token(TokenFactoryMsgOptions::CreateDenom {
         subdenom: subdenom.clone(),
-        metadata,
+        metadata: metadata.clone(),
     });
 
     let full_denom = format!("factory/{}/{}", env.contract.address, subdenom);
-    DENOM_OWNER.save(deps.storage, full_denom, &info.sender)?;
+
+    DENOM_OWNER.save(deps.storage, full_denom.clone(), &info.sender)?;
+
+    if let Some(Metadata { uri, uri_hash, .. }) = metadata {
+        DENOM_EXTENDED_INFO.save(
+            deps.storage,
+            full_denom.clone(),
+            &ExtendedInfo {
+                uri,
+                uri_hash
+            },
+        )?;
+    }
 
     let res = Response::new()
         .add_attribute("method", "create_denom")
@@ -254,6 +266,7 @@ pub fn query(deps: Deps<TokenFactoryQuery>, _env: Env, msg: QueryMsg) -> StdResu
         }
         QueryMsg::GetMetadata { denom } => to_json_binary(&get_metadata(deps, denom)?),
         QueryMsg::GetParams {} => to_json_binary(&get_params(deps)?),
+        QueryMsg::GetExtendedInfo { denom } => to_json_binary(&get_extended_info(deps, denom)?),
     }
 }
 
@@ -286,6 +299,11 @@ fn get_metadata(deps: Deps<TokenFactoryQuery>, denom: String) -> StdResult<Metad
 fn get_params(deps: Deps<TokenFactoryQuery>) -> StdResult<ParamsResponse> {
     let querier = TokenQuerier::new(&deps.querier);
     let response = querier.params()?;
+    Ok(response)
+}
+
+fn get_extended_info(deps: Deps<TokenFactoryQuery>, denom: String) -> StdResult<ExtendedInfo> {
+    let response = DENOM_EXTENDED_INFO.load(deps.storage, denom)?;
     Ok(response)
 }
 
