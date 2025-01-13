@@ -17,4 +17,6 @@ pub enum ContractError {
 
     #[error("Token denom was never created")]
     TokenDoesntExist,
+
+    
 }

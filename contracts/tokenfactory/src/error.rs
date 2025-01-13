@@ -23,4 +23,10 @@ pub enum TokenFactoryError {
 
     #[error("Invalid fund")]
     InvalidFund {},
+
+    #[error("Existed creator")]
+    AlreadyExists {},
+
+    #[error("Creator not found")]
+    CreatorNotFound {},
 }

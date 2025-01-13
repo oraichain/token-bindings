@@ -262,6 +262,9 @@ pub enum TokenFactoryError {
     /// Remove this to let the compiler find all TODOs
     #[error("Not yet implemented (TODO)")]
     Unimplemented,
+
+    #[error("Unauthorized")]
+    Unauthorized {},
 }
 
 pub type TokenFactoryAppWrapped = App<

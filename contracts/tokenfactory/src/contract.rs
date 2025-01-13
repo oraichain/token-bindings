@@ -7,10 +7,10 @@ use cw2::set_contract_version;
 
 use crate::error::TokenFactoryError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-use crate::state::{Config, CONFIG, DENOM_OWNER};
+use crate::state::{Config, CONFIG, CREATOR, DENOM_OWNER};
 use token_bindings::{
-    DenomsByCreatorResponse, FullDenomResponse, Metadata, MetadataResponse, ParamsResponse,
-    TokenFactoryMsg, TokenFactoryMsgOptions, TokenFactoryQuery, TokenQuerier,
+    CreatorsResponse, DenomsByCreatorResponse, FullDenomResponse, Metadata, MetadataResponse,
+    ParamsResponse, TokenFactoryMsg, TokenFactoryMsgOptions, TokenFactoryQuery, TokenQuerier,
 };
 
 // version info for migration info
@@ -72,7 +72,64 @@ pub fn execute(
             from_address,
             to_address,
         } => force_transfer(deps, info, denom, amount, from_address, to_address),
+        ExecuteMsg::AddCreator { address } => add_creator(deps, info, address),
+        ExecuteMsg::RemoveCreator { address } => remove_creator(deps, info, address),
     }
+}
+
+pub fn add_creator(
+    deps: DepsMut<TokenFactoryQuery>,
+    info: MessageInfo,
+    address: Addr,
+) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
+    let config = CONFIG.load(deps.storage)?;
+    if config.owner != info.sender {
+        return Err(TokenFactoryError::Unauthorized {});
+    }
+
+    let mut creators = CREATOR.load(deps.storage)?;
+    if creators.whitelist_addresses.contains(&address) {
+        return Err(TokenFactoryError::AlreadyExists {});
+    }
+    creators.whitelist_addresses.push(address.clone());
+
+    CREATOR.save(deps.storage, &creators)?;
+
+    let res = Response::new()
+        .add_attribute("method", "add_creator")
+        .add_attribute("creator", address.to_string());
+
+    Ok(res)
+}
+
+pub fn remove_creator(
+    deps: DepsMut<TokenFactoryQuery>,
+    info: MessageInfo,
+    address: Addr,
+) -> Result<Response<TokenFactoryMsg>, TokenFactoryError> {
+    let config = CONFIG.load(deps.storage)?;
+    if config.owner != info.sender {
+        return Err(TokenFactoryError::Unauthorized {});
+    }
+
+    let mut creators = CREATOR.load(deps.storage)?;
+    if let Some(pos) = creators
+        .whitelist_addresses
+        .iter()
+        .position(|x| x == &address)
+    {
+        creators.whitelist_addresses.remove(pos);
+    } else {
+        return Err(TokenFactoryError::CreatorNotFound {});
+    }
+
+    CREATOR.save(deps.storage, &creators)?;
+
+    let res = Response::new()
+        .add_attribute("method", "remove_creator")
+        .add_attribute("creator", address.to_string());
+
+    Ok(res)
 }
 
 pub fn update_config(
@@ -110,6 +167,11 @@ pub fn create_denom(
 
     if subdenom.eq("") {
         return Err(TokenFactoryError::InvalidSubdenom { subdenom });
+    }
+
+    let creator = CREATOR.may_load(deps.storage)?.unwrap_or_default();
+    if !creator.whitelist_addresses.contains(&info.sender) {
+        return Err(TokenFactoryError::Unauthorized {});
     }
 
     let create_denom_msg = TokenFactoryMsg::Token(TokenFactoryMsgOptions::CreateDenom {
@@ -254,6 +316,7 @@ pub fn query(deps: Deps<TokenFactoryQuery>, _env: Env, msg: QueryMsg) -> StdResu
         }
         QueryMsg::GetMetadata { denom } => to_json_binary(&get_metadata(deps, denom)?),
         QueryMsg::GetParams {} => to_json_binary(&get_params(deps)?),
+        QueryMsg::GetCreators {} => to_json_binary(&get_creators(deps)?),
     }
 }
 
@@ -287,6 +350,13 @@ fn get_params(deps: Deps<TokenFactoryQuery>) -> StdResult<ParamsResponse> {
     let querier = TokenQuerier::new(&deps.querier);
     let response = querier.params()?;
     Ok(response)
+}
+
+fn get_creators(deps: Deps<TokenFactoryQuery>) -> StdResult<CreatorsResponse> {
+    let creators = CREATOR.may_load(deps.storage)?.unwrap_or_default();
+    Ok(CreatorsResponse {
+        creators: creators.whitelist_addresses,
+    })
 }
 
 fn validate_denom(
@@ -343,6 +413,8 @@ fn validate_denom_owner(
 }
 #[cfg(test)]
 mod tests {
+    use crate::state::Creator;
+
     use super::*;
     use cosmwasm_std::testing::{
         mock_env, mock_info, MockApi, MockQuerier, MockStorage, MOCK_CONTRACT_ADDR,
@@ -353,6 +425,7 @@ mod tests {
     };
 
     use std::marker::PhantomData;
+    use std::ops::Add;
     use token_bindings::{FullDenomResponse, TokenFactoryQuery, TokenFactoryQueryEnum};
     use token_bindings_test::TokenFactoryApp;
 
@@ -462,10 +535,32 @@ mod tests {
             execute(deps.as_mut(), mock_env(), info.clone(), msg.clone()).unwrap_err();
         assert_eq!(err, TokenFactoryError::InvalidFund {});
 
-        // case 3: success
+        // case 3: missing creator
+        let info = mock_info("creator", &[]);
+        let err = execute(deps.as_mut(), mock_env(), info, msg.clone()).unwrap_err();
+        assert_eq!(err, TokenFactoryError::Unauthorized {});
+
+        // case 4: success
+        let mut creators = Vec::<Addr>::new();
+        creators.push(Addr::unchecked("creator"));
+        CREATOR
+            .save(
+                deps.as_mut().storage,
+                &Creator {
+                    whitelist_addresses: creators,
+                },
+            )
+            .unwrap();
         let info = mock_info("creator", &[]);
         let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap();
         assert_eq!(1, res.messages.len());
+
+        // get creator info success
+        let get_creator_msg = QueryMsg::GetCreators {};
+        let response = query(deps.as_ref(), mock_env(), get_creator_msg).unwrap();
+        let creators: CreatorsResponse = from_json(&response).unwrap();
+        assert_eq!(creators.creators.len(), 1);
+        assert_eq!(creators.creators[0].to_string(), "creator");
 
         let expected_message = CosmosMsg::from(TokenFactoryMsg::Token(
             TokenFactoryMsgOptions::CreateDenom {

@@ -1,6 +1,6 @@
 use crate::types::{Metadata, Params};
 use cosmwasm_schema::{cw_serde, QueryResponses};
-use cosmwasm_std::CustomQuery;
+use cosmwasm_std::{Addr, CustomQuery};
 
 #[cw_serde]
 #[derive(QueryResponses)]
@@ -75,4 +75,9 @@ pub struct DenomsByCreatorResponse {
 #[cw_serde]
 pub struct ParamsResponse {
     pub params: Params,
+}
+
+#[cw_serde]
+pub struct CreatorsResponse {
+    pub creators: Vec<Addr>,
 }
