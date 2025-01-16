@@ -38,6 +38,12 @@ pub enum ExecuteMsg {
         from_address: String,
         to_address: String,
     },
+    AddCreator {
+        address: Addr
+    },
+    RemoveCreator {
+        address: Addr
+    }
 }
 
 #[cw_serde]
@@ -54,4 +60,6 @@ pub enum QueryMsg {
     DenomsByCreator { creator: String },
     #[returns(token_bindings::ParamsResponse)]
     GetParams {},
+    #[returns(token_bindings::CreatorsResponse)]
+    GetCreators {},
 }
