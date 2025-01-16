@@ -6,7 +6,7 @@ use cosmwasm_std::{
 use cw2::set_contract_version;
 
 use crate::error::TokenFactoryError;
-use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
+use crate::msg::{ExecuteMsg, InstantiateMsg, MigrateMsg, QueryMsg};
 use crate::state::{Config, CONFIG, CREATOR, DENOM_OWNER};
 use token_bindings::{
     CreatorsResponse, DenomsByCreatorResponse, FullDenomResponse, Metadata, MetadataResponse,
@@ -411,6 +411,12 @@ fn validate_denom_owner(
     }
     Ok(())
 }
+
+#[cfg_attr(not(feature = "library"), entry_point)]
+pub fn migrate(_deps: DepsMut, _env: Env, _msg: MigrateMsg) -> Result<Response, TokenFactoryError> {
+    Ok(Response::default())
+}
+
 #[cfg(test)]
 mod tests {
     use crate::state::Creator;

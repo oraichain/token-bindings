@@ -39,11 +39,11 @@ pub enum ExecuteMsg {
         to_address: String,
     },
     AddCreator {
-        address: Addr
+        address: Addr,
     },
     RemoveCreator {
-        address: Addr
-    }
+        address: Addr,
+    },
 }
 
 #[cw_serde]
@@ -63,3 +63,6 @@ pub enum QueryMsg {
     #[returns(token_bindings::CreatorsResponse)]
     GetCreators {},
 }
+
+#[cw_serde]
+pub struct MigrateMsg {}
