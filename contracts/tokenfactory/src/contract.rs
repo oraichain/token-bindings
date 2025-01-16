@@ -416,7 +416,6 @@ fn validate_denom_owner(
 pub fn migrate(deps: DepsMut, _env: Env, msg: MigrateMsg) -> Result<Response, TokenFactoryError> {
     let config = Config { owner: msg.owner };
 
-    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
     CONFIG.save(deps.storage, &config)?;
     Ok(Response::default())
 }
