@@ -87,7 +87,7 @@ pub fn add_creator(
         return Err(TokenFactoryError::Unauthorized {});
     }
 
-    let mut creators = CREATOR.load(deps.storage)?;
+    let mut creators = CREATOR.may_load(deps.storage)?.unwrap_or_default();
     if creators.whitelist_addresses.contains(&address) {
         return Err(TokenFactoryError::AlreadyExists {});
     }
